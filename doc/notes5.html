@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>21M.385 Lecture Notes 5</title>
+    <link rel="stylesheet" href="style.css">  
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.2/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <meta charset="UTF-8">
+</head>
+
+<body>
+
+<h1>Lecture Notes 5</h1>
+
+
+
+<h3>Input Device Properties</h3>
+<ul>
+    <li>Physical sensing: analog vs digital</li>
+    <li>Input: continuous vs discrete</li>
+    <li>Output: continuous vs discrete</li>
+    <li>Single dimensional vs multidimensional</li>
+    <li>Function: abstract vs concrete</li>
+    <li>Input feedback</li>
+    <li>Output feedback</li>
+</ul>
+
+
+<h3>Examples of Input Devices</h3>
+<p>What are the properties of these input devices?</p>
+<ul>
+    <li>Light switch</li>
+    <li>Game pad controller</li>
+    <li>Game steering wheel</li>
+    <li>Guitar hero / rock band guitar</li>
+    <li>Button grid (Launchpad, Ableton Push)</li>
+    <li>Touch surface (Kaoss pad, smartphone & tablets)</li>
+    <li>Electronic keyboard</li>
+    <li>Roli Seaboard</li>
+    <li>Handheld motion sensors (wii, ps move)</li>
+    <li>Non-contact sensors (Kinect, Leap Motion)</li>
+</ul>
+
+
+<h3>Kinect (xbox 360 version)</h3>
+<ul>
+    <li>Two main technologies. See details <a href="ref5/how_does_kinect_work.pdf">here</a>.</li>
+    <ul>
+        <li>Depth sensing: creating a depth map, a 2D image where each pixel is a depth value. Computation happens in the camera.</li>
+        <li>Skeletal tracking: Developed with machine learning. Computation happens in software on the PC.</li>
+    </ul>
+    <li>Microsoft developed skeletal tracking for the Xbox and PC - but this cannot be used on other OSs.</li>
+    <li>Primesense developed drivers and skeletal tracking that is available as compiled libraries (not open source). Apple bought Primesense in Nov 2013 and all support has been discontinued.</li>
+    <li>Sadly, getting Kinect to run on modern OSs is becoming more difficult due to the lack of support.</li>
+    <li>To get Kinect to talk to Kivy, use Synapse, written by Ryan Challinor. Kinect talks to Synapse which sends skeletal data via OSC (open sound control) to Kivy and the module <code>kinect.py</code></li>
+</ul>
+
+<h3>Leap Motion</h3>
+<ul>
+    <li>Similar to Kinect, but sensing area is smaller: 2x2x2 foot area above the sensor.</li>
+    <li>Uses infrared lights and two infrared cameras create the depth map using stereoscopic image processing</li>
+    <li>Skeletal detection for up to two hands. Lots of tracking and filtering to smooth over problematic cases (occlusion, interference)</li>
+    <li>Leap is mostly focused on VR today, but the sensor is still great for motion tracking and creating music apps!</li>
+    <li>Has python bindings as part of the installation package.</li>
+    <li>We will use leap motion SDK “V2”. <a href="https://developer.leapmotion.com/documentation/v2/python/index.html">Documentation is here</a>. 
+    <li>Try out the Leap Visualizer App.</li>
+</ul>
+
+<h3>Kinect in Kivy</h3>
+<ul>
+    <li>Run Synapse. Make sure your Kinect is plugged into USB and plugged into power.</li>
+    <li>Create a Kinect object (from module <code>kinect</code>).</li>
+    <li>Use <code>kinect.add_joint()</code> to register a joint for tracking.</li>
+    <li>Remember to call <code>Kinect.on_update()</code> every frame</li>
+    <li>Query for data using <code>kinect.get_joint()</code></li>
+    <li>There are three options for coordinate systems:</li>
+    <ul>
+        <li><code>Kinect.kBody</code>: All values are in millimeters, relative to the torso joint.</li>
+        <li><code>Kinect.kWorld</code>: All values are in millimeters, relative to the Kinect camera</li>
+        <li><code>Kinect.kScreen</code>: x, y are in screen pixels (0,0 it top left), z is like <code>kWorld</code>.</li>
+    </ul>
+</ul>
+
+<h3>Leap in Kivy</h3>
+<ul>
+    <li><code>import leaputil</code> and <code>import Leap</code> to get started.</li>
+    <li>Create the leap controller with <code>Leap.Controller()</code>.</li>
+    <li>On every <code>on_update()</code>, get a “frame” of data from the controller with <code>frame()</code> and find out what’s going on.</li>
+    <li>You can either use the Leap API directly or you can use helper function provided by <code>leaputil</code> such as <code>leap_one_palm()</code>, <code>leap_two_palms()</code>, <code>leap_fingers()</code></li>
+    <li>The coordinate system is relative to the Leap Motion sensor, and units are in millimeters.</li>
+</ul>
+
+<h3>Normalized Coordinates</h3>
+<ul>
+    <li>It can be helpful to define a 3D "bounding box" for the interaction space by converting the camera coordinates (in millimeters) into a unit-coordinate system, where x, y, z are in the range [0 - 1].</li>
+    <li>See <code>scale_point(pt, _range)</code> in <code>gfxutil</code></li>
+    <li>Use the <code>Cursor3D</code> object (in <code>gfxutil</code> module) to plot normalized hand or finger positions.</li>
+</ul>
+
+<h3>Gestures</h3>
+<ul>
+    <li>Gestures let us create a discrete event from a multi-dimensional continuous input device.</li>
+    <li>It is useful to create a separate class for a gesture detector. Use a callback function to communicate results back to the parent class.</li>
+    <li><code>ClapGesture</code> example - see <code>MainWidget6</code></li>
+    <ul>
+        <li>Simple state machine with two states: hands-together, hands-apart.</li>
+        <li>Use of hysteresis (or debouncing) to avoid chatter at boundary.</li>
+    </ul>
+    <li>Leap has a gesture detection API - see <code>MainWidget7</code> for an example of detecting a circle gesture.</li>
+</ul>
+
+<h3>Interface Design Issues</h3>
+<ul>
+    <li>Spatial sensors have no tactile input feedback</li>
+    <li>This places additional burden on the designer to create graphics support for input feedback</li>
+    <li>UI design must be more transparent and discoverable</li>
+    <li>How to play to the strengths of spatial sensors?</li>
+</ul>
+
+
+<h3>Final Projects</h3>
+<ul>
+    <li>Start thinking of ideas.</li>
+    <li>I have a HW budget to purchase sensors or whatever you may want for your final project. But you will need to return this HW at the end of the term.</li>
+    <li>Pitch sessions - get ideas flowing, start thinking about who has what ideas and who you may want to partner with.</li>
+    <li>Projects should have 2 or 3 people per project.</li>
+</ul>

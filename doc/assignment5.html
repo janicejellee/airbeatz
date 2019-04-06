@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>21M.385 Assignment 5</title>
+    <link rel="stylesheet" href="style.css">  
+    <meta charset="UTF-8">
+</head>
+
+<body>
+
+<h1>Assignment 5: Magic Harp</h1>
+<hr>
+
+
+
+<h2>Overview</h2>
+<p>In Lecture, we saw how to set up Leap Motion or Kinect and get data flowing into our python apps. We saw how to track hands and display their position on screen. We also saw how to create a simple gesture detector (Clap).</p>
+<p>For this assignment, use either the Leap Motion of the Kinect sensor to make a virtual harp. You will use the sensor as the input device and output notes using the <code>FluidSynth</code> synthesizer. Note that <code>pset5.py</code> has some template classes. Feel free to add, change, remove methods and arguments as you see fit.</p>
+
+<h2>Part 0: Choose your Sensor</h2>
+<p>Choose either the Leap Motion or the Kinect sensor.</p>
+<p>For Leap, the module leaputil.py has some helper functions. You may use the Leap API directly as well. <a href="https://developer.leapmotion.com/documentation/v2/python/index.html">Documentation is here</a>.</p>
+<p>For Kinect, you will need to run Synapse. See instructions on the <a href="https://www.dropbox.com/sh/kkaeth6t0erd19c/AABppWUYY9B-V0bJYo7n5OfQa">class Dropbox</a> under kinect_install.</p>
+
+<h2>Part 1: Cursor and String Display [10 pts]</h2>
+<ul>
+    <li>Your hand controls a cursor, much in the same way that we created a cursor in class. The cursor represents a finger, moves in 2D, and will be able to "pluck" the strings.</li>
+    <li>Define your harp size and position on screen. Make a <code>Cursor3D</code> instance that displays the position of the hand in “Harp space.” The <code>Harp</code> object is the owner of the <code>Cursor3D</code>.</li>
+    <li>Use z-depth to alter states between active and inactive: When the user extends their hand forward, plucking is enabled. Otherwise, plucking is disabled. Create a graphical indication of the state (for example, you can change the color or shape of the cursor).</li>
+    <li>Create a single <code>String</code> (for now) in your Harp class. <code>String</code> should contain a kivy <code>Line</code> object with 3 points – bottom, middle, and top. The top and bottom points stay fixed, but the middle point can move around to simulate the finger “grabbing” and bending the string.</li>
+</ul>
+
+<h2>Part 2: Plucking Gesture [15 pts]</h2>
+<ul>
+    <li>Write the code to detect a plucking gesture. A pluck happens when a “grabbed” string is pulled far enough left or right from its neutral position by the finger.</li>
+    <li>You will need two thresholds, a grab threshold to determine when the finger should grab the string, and a (larger) pluck threshold that determines when the string should be released back to neutral and trigger the pluck.</li>
+    <li>Grabbing and plucking should only happen when active. If the hand becomes inactive during a string grab, the string should return to neutral, but not pluck.</li>
+    <li>When a pluck happens, call a callback on the Harp object. For now, you can just print that the pluck happened. The string should go back to its resting state.</li>
+    <li>You may create a string animation that goes along with the pluck (see Part 4).</li>
+    <li>Test <code>String</code> and <code>PluckGesture</code> thoroughly to make sure everything behaves well and all edge cases are OK.</li>
+</ul>
+
+<h2>Part 3: Complete the Harp [10 pts]</h2>
+<ul>
+    <li>Now that a single string and pluck gesture are working, create N of these to have N functional strings on your Harp. Each pluck gesture gets a unique id (corresponding to the string index) so that it can inform the callback which string was plucked.</li>
+    <li>Create a system that can play notes based on the plucked strings. Use <code>FluidSynth</code> and call <code>noteon</code> and <code>noteoff</code> functions as needed.</li>
+    <li>Choose a "tuning" or (ie, series of appropriate notes) that should be played as the harp strings are plucked.</li>
+</ul>
+
+<h2>Part 4: Additional Creative Element [15 pts]</h2>
+<p>Since this is a virtual harp, you can code it to do whatever you want! The analogy to a real harp is useful - people will understand how to approach it - but you can also bend some rules for more interesting interactions. Here are some ideas, or come up with your own:</p>
+<ul>
+    <li>Strings don't always have to have the same tunings (pitches). Find a method for dynamically changing the pitches of the strings. Remember, NO KEYBOARD here. All control of your harp must happen via the Sensor.</li>
+    <li>Add something to control with your other hand or explore what you might do with custom gestures or specific fingers (Leap) or with other joints like your head or knees (Kinect).</li>
+    <li>How would you control velocity (ie, loudness) of the plucked strings?</li>
+    <li>Add more graphical feedback to the virtual harp. Think about colors, shapes, and animations.</li>
+</ul>
+<p>To get full credit for this creative part, you must enhance both the musical behavior and the graphics/UI of the Harp.</p>
+<p>Provide a brief video of you playing your harp and a README that explains the extra creative element(s).</p>
+
+<h2>Finally...</h2>
+<p>Please <b>do not upload the 147MB soundfont bank</b>. You do not need to have individually testable parts. A single running Harp with the above specifications is fine.</p>
+<p>Please have good comments in your code. When submitting your solution, submit a zip file that has all the necessary files (except for the soundfont bank). Upload your zip file to LMOD / Homework.</p>
