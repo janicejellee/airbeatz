@@ -31,7 +31,46 @@ if MODE == 'leap':
 if MODE == 'kinect':
     from common.kinect import *
 
-cmaj = [60, 62, 64, 65, 67, 69, 71, 72]
+# This class displays a single string on screen. It knows how to draw the
+# string and how to bend it, and animate it
+class NoteCircle(InstructionGroup):
+    def __init__(self, x, down_speed):
+        super(NoteCircle, self).__init__()
+        self.x = x
+        self.y = Window.height
+
+        self.circle = CEllipse(pos=(x, Window.height), size=(50,50))
+        self.add(self.circle)
+
+        self.time = 0
+
+        # will depend on difficulty
+        # self.max_time = 5
+        self.down_speed = down_speed
+        
+        self.y_anim = None
+        self.on_update(0)
+
+    # idk if this needed?
+    def fall(self):
+        # self.y_anim = KFAnim((0, Window.height), (self.max_time, 0)) # color disappears
+        self.time = 0
+        self.y_anim = True
+        self.on_update(0)
+
+    def on_update(self, dt):
+        self.time += dt
+
+        if self.y < 0:
+            self.y_anim = None
+        if self.y_anim:
+            # dy = self.y_anim.eval(self.time)
+            # print (dy)
+            # print (self.circle.pos)
+            self.circle.pos = (self.x, self.y - self.down_speed)
+            self.y -= self.down_speed
+        return True
+
 class MainWidget(BaseWidget) :
     def __init__(self):
         super(MainWidget, self).__init__()
@@ -76,6 +115,40 @@ class MainWidget(BaseWidget) :
         self.idx = 0
         self.playing = False
 
+        # draws hit line
+        # i tried to make a gradient but didn't work out lol, might add later
+
+        c1 = Color(77/255, 148/255, 255/255)
+        # c2 = Color(153/255, 255/255, 187) # green
+        # c3 = Color(204/255, 51/255, 0) # lol i forgot
+
+        # line_pts_top2 = [0, 86, Window.width, 86]
+        # line_pts_top1 = [0, 83, Window.width, 83]
+        line_pts_mid = [0, 80, Window.width, 80]
+        # line_pts_bot1 = [0, 77, Window.width, 77]
+        # line_pts_bot2 = [0, 76, Window.width, 76]
+
+        # hit_line_top2 = Line(points=line_pts_top2, width=3)
+        # hit_line_top1 = Line(points=line_pts_top1, width=3)
+        hit_line_mid = Line(points=line_pts_mid, width=5)
+        # hit_line_bot1 = Line(points=line_pts_bot1, width=3)
+        # hit_line_bot2 = Line(points=line_pts_bot2, width=3)
+
+        self.canvas.add(c1);
+        self.canvas.add(hit_line_mid);
+        # self.canvas.add(c2);
+        # self.canvas.add(hit_line_top1);
+        # self.canvas.add(hit_line_bot1);
+        # self.canvas.add(c3);
+        # self.canvas.add(hit_line_top2);
+        # self.canvas.add(hit_line_bot2);
+
+        self.objects = AnimGroup()
+        circle = NoteCircle(20, 4)
+        circle.fall()
+        self.objects.add(circle)
+        self.canvas.add(self.objects)
+
     def start(self):
         self.wave_gen = WaveGenerator(self.wave_file)
         self.mixer.add(self.wave_gen)
@@ -94,24 +167,15 @@ class MainWidget(BaseWidget) :
     def on_update(self) :
         self.audio.on_update()
 
+        self.objects.on_update()
+
         self.label.text = ''
 
         if MODE == 'leap':
-            self.label.text += leap_info(self.leap)            
+            self.label.text += leap_info(self.leap)
             leap_frame = self.leap.frame()
             pt = leap_one_palm(leap_frame)
             norm_pt = scale_point(pt, kLeapRange)
-            
-            if norm_pt[2] >= 1:
-                self.playing = False
-                self.synth.noteoff(self.channel, cmaj[self.idx])
-            else:
-                idx = int((norm_pt[1] + 1) * len(cmaj) / 2)
-                if self.idx != idx:
-                    self.synth.noteoff(self.channel, cmaj[self.idx])
-                    self.idx = idx
-                    self.synth.noteon(self.channel, cmaj[self.idx], self.volume)
-            # delta_pitch = abs(kLeapRange[0][0] - kLeapRange[0][1])
 
         elif MODE == 'kinect':
             self.kinect.on_update()
