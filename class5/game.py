@@ -156,6 +156,7 @@ class MainWidget(BaseWidget) :
         self.times = [(time, random.random() * (Window.width - 400) + 200) for time in self.time_instants]
         self.left_hand_pos = [0,0,0]
         self.right_hand_pos = [0,0,0]
+        self.score = 0
 
     def add_falling_star(self, x, start_time):
         ps = ParticleSystem('particle/particle.pex')
@@ -182,6 +183,7 @@ class MainWidget(BaseWidget) :
         self.particle_systems = []
         self.time_checker_index = 0
         self.gem_checker_index = 0
+        self.star_index = 0
 
     def on_key_down(self, keycode, modifiers):
         if keycode[1] == 's':
@@ -213,7 +215,7 @@ class MainWidget(BaseWidget) :
         self.label.text = ''
 
         if MODE == 'leap':
-            self.label.text += leap_info(self.leap)
+            # self.label.text += leap_info(self.leap)
             leap_frame = self.leap.frame()
             # pt = leap_one_palm(leap_frame)
             # norm_pt = scale_point(pt, kLeapRange)
@@ -234,11 +236,16 @@ class MainWidget(BaseWidget) :
 
         # self.label.text += 'x=%d y=%d z=%d\n' % (pt[0], pt[1], pt[2])
         # self.label.text += 'x=%.2f y=%.2f z=%.2f\n' % (norm_pt[0], norm_pt[1], norm_pt[2])
-        self.label.text += 'x=%d y=%d z=%d\n' % (pts[0][0], pts[0][1], pts[0][2])
-        self.label.text += 'x=%.2f y=%.2f z=%.2f\n' % (norm_pts[0][0], norm_pts[0][1], norm_pts[0][2])
+
+        # self.label.text += 'x=%d y=%d z=%d\n' % (pts[0][0], pts[0][1], pts[0][2])
+        # self.label.text += 'x=%.2f y=%.2f z=%.2f\n' % (norm_pts[0][0], norm_pts[0][1], norm_pts[0][2])
+
+        # If song is playing:
         if self.wave_gen is not None:
-            self.label.text += 'frame=%.2f\n' % (self.wave_gen.frame)
-            self.label.text += 'seconds=%.2f\n' % (self.wave_gen.frame / Audio.sample_rate)
+            # self.label.text += 'frame=%.2f\n' % (self.wave_gen.frame)
+            # self.label.text += 'seconds=%.2f\n' % (self.wave_gen.frame / Audio.sample_rate)
+            self.label.text += 'Press s to stop\n'
+            self.label.text += 'Score: %d\n' % (self.score)
 
             seconds = self.wave_gen.frame / Audio.sample_rate
 
@@ -255,8 +262,16 @@ class MainWidget(BaseWidget) :
             if (self.gem_checker_index < len(self.times)):
                 time, x = self.times[self.gem_checker_index]
                 if seconds > time:
-                    print(self.check_hand(x))
+                    hit = self.check_hand(x)
                     # TODO: animate 'HIT' or 'MISS'
+                    if hit:
+                        # Remove gem at the line
+                        ps = self.particle_systems[self.star_index][0]
+                        self.remove_widget(ps)
+                        ps.stop()
+                        self.star_index += 1
+                        self.score += 1
+                    # If MISS, gem continues to fall below the line
                     self.gem_checker_index += 1
 
             for ps_info in self.particle_systems[self.star_index:]:
@@ -269,6 +284,8 @@ class MainWidget(BaseWidget) :
                     self.star_index += 1
                     self.remove_widget(ps)
                     ps.stop()
+        else:
+            self.label.text += 'Press s to start\n'
 
         return True
 
