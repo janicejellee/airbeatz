@@ -42,7 +42,7 @@ def parse_gem_data(gem_data_path):
     return gems
 
 line_y = 80
-disappear_y = -25
+disappear_y = -100
 falling_seconds = 2
 
 class MainWidget(BaseWidget) :
@@ -80,8 +80,19 @@ class MainWidget(BaseWidget) :
         kCursorSize = Window.width - 2 * kMargin, Window.height - 2 * kMargin
         kCursorPos = kMargin, kMargin
 
-        self.hand_disp = Cursor3D(kCursorSize, kCursorPos, (.2, .6, .2))
-        self.canvas.add(self.hand_disp)
+        # self.hand_disp = Cursor3D(kCursorSize, kCursorPos, (.2, .6, .2))
+        # self.canvas.add(self.hand_disp)
+
+        # self.inactive_alpha = 0.3
+
+        self.left_hand_disp = Cursor3D(kCursorSize, kCursorPos, (.2, .2, .6))
+        # self.left_hand_disp.set_alpha(self.inactive_alpha)
+        self.canvas.add(self.left_hand_disp)
+
+        self.right_hand_disp = Cursor3D(kCursorSize, kCursorPos, (.2, .6, .2))
+        # self.right_hand_disp.set_alpha(self.inactive_alpha)
+        self.canvas.add(self.right_hand_disp)
+
 
         self.label = topleft_label()
         self.add_widget(self.label)
@@ -185,18 +196,23 @@ class MainWidget(BaseWidget) :
         if MODE == 'leap':
             self.label.text += leap_info(self.leap)
             leap_frame = self.leap.frame()
-            pt = leap_one_palm(leap_frame)
-            norm_pt = scale_point(pt, kLeapRange)
+            # pt = leap_one_palm(leap_frame)
+            # norm_pt = scale_point(pt, kLeapRange)
+            pts = list(leap_two_palms(leap_frame))
+            pts.sort(key=lambda pt: pt[0])  # sort by increasing x (hand with smaller x is first)
+            norm_pts = [scale_point(pt, kLeapRange) for pt in pts]
 
         elif MODE == 'kinect':
             self.kinect.on_update()
             pt = self.kinect.get_joint(Kinect.kRightHand)
             norm_pt = scale_point(pt, kKinectRange)
 
-        self.hand_disp.set_pos(norm_pt)
+        # self.hand_disp.set_pos(norm_pt)
+        self.left_hand_disp.set_pos(norm_pts[0])
+        self.right_hand_disp.set_pos(norm_pts[1])
 
-        self.label.text += 'x=%d y=%d z=%d\n' % (pt[0], pt[1], pt[2])
-        self.label.text += 'x=%.2f y=%.2f z=%.2f\n' % (norm_pt[0], norm_pt[1], norm_pt[2])
+        # self.label.text += 'x=%d y=%d z=%d\n' % (pt[0], pt[1], pt[2])
+        # self.label.text += 'x=%.2f y=%.2f z=%.2f\n' % (norm_pt[0], norm_pt[1], norm_pt[2])
         if self.wave_gen is not None:
             self.label.text += 'frame=%.2f\n' % (self.wave_gen.frame)
             self.label.text += 'seconds=%.2f\n' % (self.wave_gen.frame / Audio.sample_rate)
