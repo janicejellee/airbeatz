@@ -14,6 +14,7 @@ from common.wavegen import *
 from common.kivyparticle import ParticleSystem
 
 import numpy as np
+import random
 
 # Choose your mode:
 # MODE = 'kinect'
@@ -26,6 +27,23 @@ if MODE == 'leap':
 if MODE == 'kinect':
     from common.kinect import *
 
+def parse_gem_data(gem_data_path):
+    buffers = {}
+    f = open(gem_data_path)
+    lines = f.readlines()
+    gems = []
+    for line in lines:
+        tokens = line.strip().split('\t')
+        time = float(tokens[0])
+        gems.append(time)
+        # x_position = int(tokens[1])
+        # gems.append((time, x_position))
+    print(gems)
+    return gems
+
+line_y = 80
+disappear_y = -25
+falling_seconds = 2
 
 class MainWidget(BaseWidget) :
     def __init__(self):
@@ -43,7 +61,7 @@ class MainWidget(BaseWidget) :
         self.mixer.add(self.sched)
         self.audio.set_generator(self.mixer)
 
-        self.wave_file = WaveFile("../data/daft_punk.wav")
+        self.wave_file = WaveFile("../data/mario.wav")
         self.wave_gen = None
 
         self.volume = 60
@@ -80,7 +98,7 @@ class MainWidget(BaseWidget) :
 
         # line_pts_top2 = [0, 86, Window.width, 86]
         # line_pts_top1 = [0, 83, Window.width, 83]
-        line_pts_mid = [0, 80, Window.width, 80]
+        line_pts_mid = [0, line_y, Window.width, line_y]
         # line_pts_bot1 = [0, 77, Window.width, 77]
         # line_pts_bot2 = [0, 76, Window.width, 76]
 
@@ -98,6 +116,8 @@ class MainWidget(BaseWidget) :
         # self.canvas.add(c3);
         # self.canvas.add(hit_line_top2);
         # self.canvas.add(hit_line_bot2);
+
+        self.x_positions = [(Window.width - 100) / 6 * i + 50 for i in range(6)]
 
         self.objects = AnimGroup()
         # circle = NoteCircle(20)
@@ -119,29 +139,41 @@ class MainWidget(BaseWidget) :
         self.time_checker_index = 0
         self.clock = Clock()
 
-    def add_falling_star(self, x):
-        print ("ADDING")
+        self.gem_data_path = "../data/gem_data.txt"
+        self.time_instants = parse_gem_data(self.gem_data_path)
+        self.times = [(time, random.random() * (Window.width - 400) + 200) for time in self.time_instants]
+
+    def add_falling_star(self, x, start_time):
         ps = ParticleSystem('particle/particle.pex')
         ps.emitter_x = x
         ps.emitter_y = Window.height
         ps.start()
         self.add_widget(ps)
-        self.particle_systems.append([ps, True])
+        # self.particle_systems.append([ps, True])
+        total_seconds = falling_seconds / (Window.height - line_y) * (Window.height - disappear_y)
+        y_anim = KFAnim((0, Window.height), (total_seconds, disappear_y))
+        self.particle_systems.append([ps, y_anim, start_time])
 
     def start(self):
         self.wave_gen = WaveGenerator(self.wave_file)
         self.mixer.add(self.wave_gen)
 
     def stop(self):
-      self.mixer.remove(self.wave_gen)
-      self.wave_gen = None
+        self.mixer.remove(self.wave_gen)
+        self.wave_gen = None
+        for ps_info in self.particle_systems[self.star_index:]:
+            # print (self.particle_systems)
+            ps, y_anim, start_time = ps_info
+            self.remove_widget(ps)
+        self.particle_systems = []
+        self.time_checker_index = 0
 
     def on_key_down(self, keycode, modifiers):
         if keycode[1] == 's':
-          if self.wave_gen is None:
-            self.start()
-          else:
-            self.stop()
+            if self.wave_gen is None:
+                self.start()
+            else:
+                self.stop()
 
     def on_update(self) :
         self.audio.on_update()
@@ -165,23 +197,28 @@ class MainWidget(BaseWidget) :
 
         self.label.text += 'x=%d y=%d z=%d\n' % (pt[0], pt[1], pt[2])
         self.label.text += 'x=%.2f y=%.2f z=%.2f\n' % (norm_pt[0], norm_pt[1], norm_pt[2])
+        if self.wave_gen is not None:
+            self.label.text += 'frame=%.2f\n' % (self.wave_gen.frame)
+            self.label.text += 'seconds=%.2f\n' % (self.wave_gen.frame / Audio.sample_rate)
 
-        # testing times
-        times = [(2, 200), (5, 500)]
-        if (self.time_checker_index < len(times)):
-            time, x = times[self.time_checker_index]
-            current_time = self.clock.get_time()
-            if current_time > time:
-                print (x)
-                self.add_falling_star(x)
-                self.time_checker_index += 1
+            seconds = self.wave_gen.frame / Audio.sample_rate
+            
+            # testing times
+            if (self.time_checker_index < len(self.times)):
+                time, x = self.times[self.time_checker_index]
+                # current_time = self.clock.get_time()
+                # if current_time > time:
+                if seconds + falling_seconds > time:
+                    # self.add_falling_star(x, current_time)
+                    self.add_falling_star(x, seconds)
+                    self.time_checker_index += 1
 
-        for ps_y_anim in self.particle_systems[self.star_index:]:
-            # print (self.particle_systems)
-            ps, y_anim = ps_y_anim
-            if y_anim:
-                # print (ps.emitter_x, ps.emitter_y)
-                ps.emitter_y = ps.emitter_y - 5
+            for ps_info in self.particle_systems[self.star_index:]:
+                ps, y_anim, start_time = ps_info
+                y = y_anim.eval(seconds - start_time)
+                # y = y_anim.eval(self.clock.get_time() - start_time)
+                # ps.emitter_y = ps.emitter_y - 5
+                ps.emitter_y = y
                 if ps.emitter_y < -20:
                     self.star_index += 1
                     self.remove_widget(ps)
