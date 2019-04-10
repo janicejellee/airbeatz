@@ -42,7 +42,7 @@ def parse_gem_data(gem_data_path):
     return gems
 
 line_y = 80
-disappear_y = -100
+disappear_y = -200
 falling_seconds = 2
 
 class MainWidget(BaseWidget) :
@@ -218,7 +218,7 @@ class MainWidget(BaseWidget) :
             self.label.text += 'seconds=%.2f\n' % (self.wave_gen.frame / Audio.sample_rate)
 
             seconds = self.wave_gen.frame / Audio.sample_rate
-            
+
             # testing times
             if (self.time_checker_index < len(self.times)):
                 time, x = self.times[self.time_checker_index]
