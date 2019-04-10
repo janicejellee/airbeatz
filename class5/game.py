@@ -1,9 +1,3 @@
-# lab5.py
-
-
-# For complete documentation see:
-# https://developer.leapmotion.com/documentation/v2/python/index.html
-
 # common import
 import sys
 sys.path.append('..')
@@ -17,6 +11,7 @@ from common.clock import *
 from common.metro import *
 from common.wavesrc import *
 from common.wavegen import *
+from common.kivyparticle import ParticleSystem
 
 import numpy as np
 
@@ -31,45 +26,6 @@ if MODE == 'leap':
 if MODE == 'kinect':
     from common.kinect import *
 
-# This class displays a single string on screen. It knows how to draw the
-# string and how to bend it, and animate it
-class NoteCircle(InstructionGroup):
-    def __init__(self, x, down_speed):
-        super(NoteCircle, self).__init__()
-        self.x = x
-        self.y = Window.height
-
-        self.circle = CEllipse(pos=(x, Window.height), size=(50,50))
-        self.add(self.circle)
-
-        self.time = 0
-
-        # will depend on difficulty
-        # self.max_time = 5
-        self.down_speed = down_speed
-        
-        self.y_anim = None
-        self.on_update(0)
-
-    # idk if this needed?
-    def fall(self):
-        # self.y_anim = KFAnim((0, Window.height), (self.max_time, 0)) # color disappears
-        self.time = 0
-        self.y_anim = True
-        self.on_update(0)
-
-    def on_update(self, dt):
-        self.time += dt
-
-        if self.y < 0:
-            self.y_anim = None
-        if self.y_anim:
-            # dy = self.y_anim.eval(self.time)
-            # print (dy)
-            # print (self.circle.pos)
-            self.circle.pos = (self.x, self.y - self.down_speed)
-            self.y -= self.down_speed
-        return True
 
 class MainWidget(BaseWidget) :
     def __init__(self):
@@ -118,9 +74,9 @@ class MainWidget(BaseWidget) :
         # draws hit line
         # i tried to make a gradient but didn't work out lol, might add later
 
-        c1 = Color(77/255, 148/255, 255/255)
-        # c2 = Color(153/255, 255/255, 187) # green
-        # c3 = Color(204/255, 51/255, 0) # lol i forgot
+        c1 = Color(77/255, 148/255, 255/255, 0.5)
+        # c2 = Color(153/255, 255/255, 187, 0.5) # green
+        # c3 = Color(204/255, 51/255, 0, 0.5) # lol i forgot
 
         # line_pts_top2 = [0, 86, Window.width, 86]
         # line_pts_top1 = [0, 83, Window.width, 83]
@@ -144,10 +100,33 @@ class MainWidget(BaseWidget) :
         # self.canvas.add(hit_line_bot2);
 
         self.objects = AnimGroup()
-        circle = NoteCircle(20, 4)
-        circle.fall()
-        self.objects.add(circle)
-        self.canvas.add(self.objects)
+        # circle = NoteCircle(20)
+        # circle.fall()
+        # self.objects.add(circle)
+        # self.canvas.add(self.objects)
+
+        # particle system
+        self.particle_systems = []
+        #
+        # ps = ParticleSystem('particle/particle.pex')
+        # ps.emitter_x = 100
+        # ps.emitter_y = Window.height
+        # ps.start()
+        # self.add_widget(ps)
+        # self.particle_systems.append([ps,True])
+
+        self.star_index = 0
+        self.time_checker_index = 0
+        self.clock = Clock()
+
+    def add_falling_star(self, x):
+        print ("ADDING")
+        ps = ParticleSystem('particle/particle.pex')
+        ps.emitter_x = x
+        ps.emitter_y = Window.height
+        ps.start()
+        self.add_widget(ps)
+        self.particle_systems.append([ps, True])
 
     def start(self):
         self.wave_gen = WaveGenerator(self.wave_file)
@@ -187,11 +166,32 @@ class MainWidget(BaseWidget) :
         self.label.text += 'x=%d y=%d z=%d\n' % (pt[0], pt[1], pt[2])
         self.label.text += 'x=%.2f y=%.2f z=%.2f\n' % (norm_pt[0], norm_pt[1], norm_pt[2])
 
+        # testing times
+        times = [(2, 200), (5, 500)]
+        if (self.time_checker_index < len(times)):
+            time, x = times[self.time_checker_index]
+            current_time = self.clock.get_time()
+            if current_time > time:
+                print (x)
+                self.add_falling_star(x)
+                self.time_checker_index += 1
+
+        for ps_y_anim in self.particle_systems[self.star_index:]:
+            # print (self.particle_systems)
+            ps, y_anim = ps_y_anim
+            if y_anim:
+                # print (ps.emitter_x, ps.emitter_y)
+                ps.emitter_y = ps.emitter_y - 5
+                if ps.emitter_y < -20:
+                    self.star_index += 1
+                    self.remove_widget(ps)
+
+        return True
 
 # for use with scale_point:
 # x, y, and z ranges to define a 3D bounding box
 kKinectRange = ( (-250, 700), (-200, 700), (-500, 0) )
 kLeapRange   = ( (-250, 250), (100, 500), (-200, 250) )
 
-
+# run(NoteCircle)
 run(MainWidget)
