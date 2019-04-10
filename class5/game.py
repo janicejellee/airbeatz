@@ -38,12 +38,12 @@ def parse_gem_data(gem_data_path):
         gems.append(time)
         # x_position = int(tokens[1])
         # gems.append((time, x_position))
-    print(gems)
     return gems
 
 line_y = 80
 disappear_y = -200
 falling_seconds = 2
+
 
 class MainWidget(BaseWidget) :
     def __init__(self):
@@ -148,11 +148,14 @@ class MainWidget(BaseWidget) :
 
         self.star_index = 0
         self.time_checker_index = 0
+        self.gem_checker_index = 0
         self.clock = Clock()
 
         self.gem_data_path = "../data/gem_data.txt"
         self.time_instants = parse_gem_data(self.gem_data_path)
         self.times = [(time, random.random() * (Window.width - 400) + 200) for time in self.time_instants]
+        self.left_hand_pos = [0,0,0]
+        self.right_hand_pos = [0,0,0]
 
     def add_falling_star(self, x, start_time):
         ps = ParticleSystem('particle/particle.pex')
@@ -178,6 +181,7 @@ class MainWidget(BaseWidget) :
             self.remove_widget(ps)
         self.particle_systems = []
         self.time_checker_index = 0
+        self.gem_checker_index = 0
 
     def on_key_down(self, keycode, modifiers):
         if keycode[1] == 's':
@@ -185,6 +189,21 @@ class MainWidget(BaseWidget) :
                 self.start()
             else:
                 self.stop()
+
+    # Check for HIT or MISS based on only hand position (no gestures yet)
+    # Either hand can touch any gems for now (maybe implement left / right hand gems later)
+    def check_hand(self, gem_x):  
+        x_threshold = 20  # within x_threshold screen units on either side of gem_x
+        y_threshold = 20  # within y_threshold screen units on top or bottom of line_y
+        left_hand_screen_coords = self.left_hand_disp.to_screen_coords(self.left_hand_pos)
+        if abs(left_hand_screen_coords[0] - gem_x) < x_threshold:
+            if abs(left_hand_screen_coords[1] - line_y) < y_threshold:
+                return True
+        right_hand_screen_coords = self.right_hand_disp.to_screen_coords(self.right_hand_pos)
+        if abs(right_hand_screen_coords[0] - gem_x) < x_threshold:
+            if abs(right_hand_screen_coords[1] - line_y) < y_threshold:
+                return True
+        return False
 
     def on_update(self) :
         self.audio.on_update()
@@ -199,8 +218,10 @@ class MainWidget(BaseWidget) :
             # pt = leap_one_palm(leap_frame)
             # norm_pt = scale_point(pt, kLeapRange)
             pts = list(leap_two_palms(leap_frame))
-            pts.sort(key=lambda pt: pt[0])  # sort by increasing x (hand with smaller x is first)
+            # pts.sort(key=lambda pt: pt[0])  # sort by increasing x (hand with smaller x is first)
             norm_pts = [scale_point(pt, kLeapRange) for pt in pts]
+            self.left_hand_pos = norm_pts[0]
+            self.right_hand_pos = norm_pts[1]
 
         elif MODE == 'kinect':
             self.kinect.on_update()
@@ -208,11 +229,13 @@ class MainWidget(BaseWidget) :
             norm_pt = scale_point(pt, kKinectRange)
 
         # self.hand_disp.set_pos(norm_pt)
-        self.left_hand_disp.set_pos(norm_pts[0])
-        self.right_hand_disp.set_pos(norm_pts[1])
+        self.left_hand_disp.set_pos(self.left_hand_pos)
+        self.right_hand_disp.set_pos(self.right_hand_pos)
 
         # self.label.text += 'x=%d y=%d z=%d\n' % (pt[0], pt[1], pt[2])
         # self.label.text += 'x=%.2f y=%.2f z=%.2f\n' % (norm_pt[0], norm_pt[1], norm_pt[2])
+        self.label.text += 'x=%d y=%d z=%d\n' % (pts[0][0], pts[0][1], pts[0][2])
+        self.label.text += 'x=%.2f y=%.2f z=%.2f\n' % (norm_pts[0][0], norm_pts[0][1], norm_pts[0][2])
         if self.wave_gen is not None:
             self.label.text += 'frame=%.2f\n' % (self.wave_gen.frame)
             self.label.text += 'seconds=%.2f\n' % (self.wave_gen.frame / Audio.sample_rate)
@@ -228,6 +251,13 @@ class MainWidget(BaseWidget) :
                     # self.add_falling_star(x, current_time)
                     self.add_falling_star(x, seconds)
                     self.time_checker_index += 1
+
+            if (self.gem_checker_index < len(self.times)):
+                time, x = self.times[self.gem_checker_index]
+                if seconds > time:
+                    print(self.check_hand(x))
+                    # TODO: animate 'HIT' or 'MISS'
+                    self.gem_checker_index += 1
 
             for ps_info in self.particle_systems[self.star_index:]:
                 ps, y_anim, start_time = ps_info
