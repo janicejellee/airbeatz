@@ -151,9 +151,11 @@ class MainWidget(BaseWidget) :
         self.gem_checker_index = 0
         self.clock = Clock()
 
-        self.gem_data_path = "../data/gem_data.txt"
+        self.mode = 'easy'
+        self.gem_data_path = "../data/gem_data_easy.txt"
         self.time_instants = parse_gem_data(self.gem_data_path)
         self.times = [(time, random.random() * (Window.width - 400) + 200) for time in self.time_instants]
+
         self.left_hand_pos = [0,0,0]
         self.right_hand_pos = [0,0,0]
         self.score = 0
@@ -169,13 +171,22 @@ class MainWidget(BaseWidget) :
         y_anim = KFAnim((0, Window.height), (total_seconds, disappear_y))
         self.particle_systems.append([ps, y_anim, start_time])
 
+    def set_mode(self, mode):
+        self.mode = mode
+
+    def set_gem_data(self, gem_data_path):
+        self.stop()
+        self.gem_data_path = gem_data_path
+        self.time_instants = parse_gem_data(self.gem_data_path)
+        self.times = [(time, random.random() * (Window.width - 400) + 200) for time in self.time_instants]
+
     def start(self):
         self.wave_gen = WaveGenerator(self.wave_file)
         self.mixer.add(self.wave_gen)
 
     def stop(self):
-        self.mixer.remove(self.wave_gen)
-        self.wave_gen = None
+        if self.wave_gen in self.mixer.generators:
+            self.mixer.remove(self.wave_gen)
         for ps_info in self.particle_systems[self.star_index:]:
             # print (self.particle_systems)
             ps, y_anim, start_time = ps_info
@@ -184,6 +195,7 @@ class MainWidget(BaseWidget) :
         self.time_checker_index = 0
         self.gem_checker_index = 0
         self.star_index = 0
+        self.wave_gen = None
 
     def on_key_down(self, keycode, modifiers):
         if keycode[1] == 's':
@@ -191,6 +203,15 @@ class MainWidget(BaseWidget) :
                 self.start()
             else:
                 self.stop()
+            
+        if keycode[1] == 'e':
+            self.set_mode('easy')
+            self.set_gem_data("../data/gem_data_easy.txt")
+            
+        if keycode[1] == 'h':
+            self.set_mode('hard')
+            self.set_gem_data("../data/gem_data_hard.txt")
+
 
     # Check for HIT or MISS based on only hand position (no gestures yet)
     # Either hand can touch any gems for now (maybe implement left / right hand gems later)
@@ -244,6 +265,8 @@ class MainWidget(BaseWidget) :
         if self.wave_gen is not None:
             # self.label.text += 'frame=%.2f\n' % (self.wave_gen.frame)
             # self.label.text += 'seconds=%.2f\n' % (self.wave_gen.frame / Audio.sample_rate)
+            self.label.text += 'Hit the gems on the line!\n'
+            self.label.text += 'Mode: %s\n' % (self.mode)
             self.label.text += 'Press s to stop\n'
             self.label.text += 'Score: %d\n' % (self.score)
 
@@ -285,7 +308,10 @@ class MainWidget(BaseWidget) :
                     self.remove_widget(ps)
                     ps.stop()
         else:
+            self.label.text += 'Mode: %s\n' % (self.mode)
             self.label.text += 'Press s to start\n'
+            self.label.text += 'Press e for easy mode\n'
+            self.label.text += 'Press h for hard mode\n'
 
         return True
 
