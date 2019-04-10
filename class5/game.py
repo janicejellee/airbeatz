@@ -219,7 +219,7 @@ class MainWidget(BaseWidget) :
                 # y = y_anim.eval(self.clock.get_time() - start_time)
                 # ps.emitter_y = ps.emitter_y - 5
                 ps.emitter_y = y
-                if ps.emitter_y < -20:
+                if ps.emitter_y < disappear_y + 5:
                     self.star_index += 1
                     self.remove_widget(ps)
                     ps.stop()
