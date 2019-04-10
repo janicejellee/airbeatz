@@ -222,6 +222,7 @@ class MainWidget(BaseWidget) :
                 if ps.emitter_y < -20:
                     self.star_index += 1
                     self.remove_widget(ps)
+                    ps.stop()
 
         return True
 
