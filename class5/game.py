@@ -81,13 +81,13 @@ class MainWidget(BaseWidget) :
         self.right_hand_disp.set_pos(pos)
         screen_pos = self.right_hand_disp.to_screen_coords(pos)
         for tap_gesture in self.player.tap_gestures:
-            tap_gesture.set_hand_pos(screen_pos)
+            tap_gesture.set_hand_pos(screen_pos, "right")
 
     def set_left_hand_pos(self, pos):
         self.left_hand_disp.set_pos(pos)
         screen_pos = self.left_hand_disp.to_screen_coords(pos)
         for tap_gesture in self.player.tap_gestures:
-            tap_gesture.set_hand_pos(screen_pos)
+            tap_gesture.set_hand_pos(screen_pos, "left")
 
     def on_update(self):
         leap_frame = self.leap.frame()
@@ -228,13 +228,13 @@ class GemDisplay(InstructionGroup):
         num_seconds_to_screen_edge_bottom = num_seconds / (Window.height/2 - bottom_y) * Window.height/2
         num_seconds_to_screen_edge_sides = num_seconds / (Window.width/2 - left_x) * Window.width/2
         if self.direction == 'left':
-            self.anim = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_bottom, Window.width/2-200, 0))
+            self.pos_anim = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_bottom, Window.width/2-200, 0))
         elif self.direction == 'right':
-            self.anim = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_bottom, Window.width/2+200, 0))
+            self.pos_anim = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_bottom, Window.width/2+200, 0))
         elif self.direction == 'up_left':
-            self.anim = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_sides, 0, Window.height/2))
+            self.pos_anim = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_sides, 0, Window.height/2))
         elif self.direction == 'up_right':
-            self.anim = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_sides, Window.width, Window.height/2))
+            self.pos_anim = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_sides, Window.width, Window.height/2))
 
         self.time = 0
         self.hit = False
@@ -257,6 +257,7 @@ class GemDisplay(InstructionGroup):
         self.color.a = 1
         self.hit = True
         self.width_anim = KFAnim((0, self.width), (1, 3 * self.width))
+        self.pos_anim = False  # stop moving
         self.time = 0
         self.on_update(0)
 
@@ -264,24 +265,12 @@ class GemDisplay(InstructionGroup):
     def on_pass(self):
         self.color.a = 0.2  # decrease color alpha
 
-    # def set_seconds(self, t1, t2):
-    #     if self.hit:
-    #         position = self.anim.eval(self.time)
-    #         self.line.points = [position[0], position[1], position[0], position[1]]
-            # x1, y1, x2, y2 = self.line.points
-            # if self.direction == 'left':
-            #     self.line.points = [x1-10, y1-10, x2-7, y2-10]
-            # elif self.direction == 'right':
-            #     self.line.points = [x1+7, y1-10, x2+10, y2-10]
-            # elif self.direction == 'up_left':
-            #     self.line.points = [x1-10, y1-3, x2-10, y2+2]
-            # elif self.direction == 'up_right':
-            #     self.line.points = [x1+10, y1-3, x2+10, y2+2]
-
     def set_second(self, second):
-        position = self.anim.eval(second)
-        self.line.points = [position[0], position[1], position[0], position[1]]
-        return self.anim.is_active(second)
+        if self.pos_anim:
+            position = self.pos_anim.eval(second)
+            self.line.points = [position[0], position[1], position[0], position[1]]
+            return self.pos_anim.is_active(second)
+        return True
 
     # useful if gem is to animate
     def on_update(self, dt):
@@ -325,7 +314,7 @@ class SideBarDisplay(InstructionGroup):
         }
         self.points = direction_line_points[self.direction]
         self.line = Line(points=self.points, width=10)
-        self.orig_a = 0.7
+        self.orig_a = 0.5
         self.color = Color(242, 242, 242, self.orig_a)
         self.add(self.color)
         self.add(self.line)
@@ -337,24 +326,27 @@ class SideBarDisplay(InstructionGroup):
     # displays when side bar is tapped (and if it hit a gem)
     def on_tap(self, hit):
         if hit:
-            self.color.a = 1
+            # self.color.a = 1
+            print("hit!")
         else:
             self.miss = True
 
     # back to normal state
     def on_release_tap(self):
-        self.color.a = self.orig_a
         if self.miss:
             self.miss = False
 
     def set_tapped(self, tapped):
+        if tapped:
+            self.color.a = 1
+        else:
+            self.color.a = self.orig_a
         self.tapped = tapped
 
 
 # This class monitors the location of the hand and determines if a tap on
 # a SideBar happened. Each TapGesture is associated with a SideBar (one-to-one
-# correspondence). The TapGesture also changes the display of the SideBar
-# to show the SideBar is being tapped.
+# correspondence).
 # the callback function takes a single argument: SideBar being tapped
 class TapGesture(object):
     def __init__(self, side_bar, tap_callback, release_tap_callback):
@@ -367,20 +359,18 @@ class TapGesture(object):
         self.x_range = sorted([x1, x2])
         self.y_range = sorted([y1, y2])
 
-        self.x_threshold = 20 # room for error in x
-        self.y_threshold = 20  # room for error in y
+        self.x_threshold = 50 # room for error in x
+        self.y_threshold = 50  # room for error in y
 
-    def set_hand_pos(self, pos):
+    def set_hand_pos(self, pos, hand):
         # check if x and y is between allowed range & room for error
         if pos[0] > self.x_range[0] - self.x_threshold and pos[0] < self.x_range[1] + self.x_threshold and \
             pos[1] > self.y_range[0] - self.y_threshold and pos[1] < self.y_range[1] + self.y_threshold:
             if not self.side_bar.tapped:
-                self.side_bar.set_tapped(True)
-                self.tap_callback(self.side_bar)
+                self.tap_callback(self.side_bar, hand)
         # if hand position is outside side bar and side_bar was tapped, mark as untapped
         elif self.side_bar.tapped:
-            self.side_bar.set_tapped(False)
-            self.release_tap_callback(self.side_bar)
+            self.release_tap_callback(self.side_bar, hand)
 
 
 class Translate(InstructionGroup):
@@ -441,6 +431,10 @@ class BeatMatchDisplay(InstructionGroup):
         self.add(self.trans)
 
         self.end_game_callback = end_game_callback
+        self.side_bars_tapped = {
+            "right": None,
+            "left": None
+        }
 
     # called by Player. Causes the right thing to happen
     def gem_hit(self, gem_idx):
@@ -453,12 +447,17 @@ class BeatMatchDisplay(InstructionGroup):
             self.gems[gem_idx].on_pass()
 
     # called by Player. Causes the right thing to happen
-    def on_tap(self, direction, hit):
+    def on_tap(self, direction, hit, hand):
+        self.side_bars_tapped[hand] = direction
         self.side_bars[direction].on_tap(hit)
+        self.side_bars[direction].set_tapped(True)
 
     # called by Player. Causes the right thing to happen
-    def on_release_tap(self, direction):
-        self.side_bars[direction].on_release_tap()
+    def on_release_tap(self, direction, hand):
+        self.side_bars_tapped[hand] = None
+        if self.side_bars_tapped["right"] != direction and self.side_bars_tapped["left"] != direction:
+            self.side_bars[direction].on_release_tap()
+            self.side_bars[direction].set_tapped(False)
 
     def on_end_game(self):
         self.clear()
@@ -474,8 +473,8 @@ class BeatMatchDisplay(InstructionGroup):
             gem_direction = direction_number_map[int(gem_label)]
             if gem_time - num_seconds < second:
                 # print("release")
-                direction = random.choice(directions)
-                gem = GemDisplay(second, direction)
+                # direction = random.choice(directions)
+                gem = GemDisplay(second, gem_direction)
                 self.gems.append(gem)
                 self.trans.add_obj(gem, second)
                 self.gem_index += 1
@@ -503,7 +502,7 @@ class Player(object):
 
         self.tap_gestures = [TapGesture(side_bar, self.on_tap, self.on_release_tap) for direction, side_bar in self.display.side_bars.items()]
 
-    def on_tap(self, side_bar):
+    def on_tap(self, side_bar, hand):
         second = self.audio_ctrl.get_frame() / Audio.sample_rate
         hit = False
         gem_index = self.pass_gem_index + 1
@@ -511,23 +510,22 @@ class Player(object):
         while gem_index < len(self.gem_data) and self.gem_data[gem_index][0] <= second + self.slop_window:
             gem_label = self.gem_data[gem_index][1]
             gem_direction = direction_number_map[int(gem_label)]
-            # TODO: edit to use tapping gestures
             if gem_direction == side_bar.direction:  # Hit
                 hit = True
                 self.display.gem_hit(gem_index)
                 self.score += 1
-            else: # Else, it's a Lane miss
-                self.display.gem_pass(gem_index)  # gem can no longer by hit
+            # else: # Else, it's a Lane miss
+            #     self.display.gem_pass(gem_index)  # gem can no longer by hit
             new_pass_gem_index = gem_index
             gem_index += 1
         self.pass_gem_index = new_pass_gem_index
-        self.display.on_tap(side_bar.direction, hit)
+        self.display.on_tap(side_bar.direction, hit, hand)
         # self.audio_ctrl.set_mute(not hit)
         # if not hit:  # Temporal miss or Lane miss
         #     self.audio_ctrl.play_sfx()
 
-    def on_release_tap(self, side_bar):
-        self.display.on_release_tap(side_bar.direction)
+    def on_release_tap(self, side_bar, hand):
+        self.display.on_release_tap(side_bar.direction, hand)
 
     def on_end_game(self):
         self.score = 0
