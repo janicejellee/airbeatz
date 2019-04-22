@@ -23,6 +23,13 @@ num_seconds = 3  # how long it takes for lines to move from center to bars
 bottom_y = 100
 left_x = Window.width/2-300
 right_x = Window.width/2+300
+directions = ['up_left', 'left', 'right', 'up_right']
+direction_number_map = {
+    0: "up_left",
+    1: "left",
+    2: "right",
+    3: "up_right"
+}  # labels are numbers 0 to 4 in gem_data.txt, which correspond to the directions
 
 class MainWidget(BaseWidget) :
     def __init__(self):
@@ -42,26 +49,6 @@ class MainWidget(BaseWidget) :
 
         self.label = topleft_label()
         self.add_widget(self.label)
-
-        # 4 lines
-        line_color = Color(242, 242, 242, 0.7)
-        left_pts = [Window.width/2-275, bottom_y, Window.width/2-25, bottom_y]
-        left_line = Line(points=left_pts, width=10)
-
-        right_pts = [Window.width/2+25, bottom_y, Window.width/2+275, bottom_y]
-        right_line = Line(points=right_pts, width=10)
-
-        left_top_pts = [left_x, 150, left_x, 400]
-        left_top_line = Line(points=left_top_pts, width=10)
-
-        right_top_pts = [right_x, 150, right_x, 400]
-        right_top_line = Line(points=right_top_pts, width=10)
-
-        self.canvas.add(line_color);
-        self.canvas.add(left_line);
-        self.canvas.add(right_line);
-        self.canvas.add(left_top_line);
-        self.canvas.add(right_top_line);
 
         self.leap = Leap.Controller()
 
@@ -83,17 +70,6 @@ class MainWidget(BaseWidget) :
         # play / pause toggle
         if keycode[1] == 'p':
             self.audio_ctrl.toggle()
-
-        # button down
-        button_idx = lookup(keycode[1], '12345', (0,1,2,3,4))
-        if button_idx is not None:
-            self.player.on_button_down(button_idx)
-
-    def on_key_up(self, keycode):
-        # button up
-        button_idx = lookup(keycode[1], '12345', (0,1,2,3,4))
-        if button_idx is not None:
-            self.player.on_button_up(button_idx)
 
     def on_end_game(self):
         self.audio_ctrl.on_end_game()
@@ -202,8 +178,8 @@ class SongData(object):
             tokens = line.strip().split('\t')
             time = float(tokens[0])
             if time > num_seconds:
-                button = int(tokens[1])
-                gems.append((time, button))
+                direction = int(tokens[1])
+                gems.append((time, direction))
         return gems
 
     def read_barline_data(self, filepath):
@@ -225,8 +201,7 @@ gem_r = 30
 class GemDisplay(InstructionGroup):
     def __init__(self, second, direction):
         super(GemDisplay, self).__init__()
-        # self.x = pos[0]
-        # self.orig_a = 0.5
+        self.orig_a = 0.5
 
         # self.color = Color(color[0], color[1], color[2], self.orig_a)
         # self.add(self.color)
@@ -242,7 +217,10 @@ class GemDisplay(InstructionGroup):
         else:
             starting_pts = [Window.width/2-50, Window.height/2, Window.width/2+50, Window.height/2]
 
-        self.line = Line(points=starting_pts, width=5)
+        self.width = 5
+        self.line = Line(points=starting_pts, width=self.width)
+        self.color = Color(242, 242, 242, self.orig_a)
+        self.add(self.color)
         self.add(self.line)
 
         self.time = second
@@ -261,7 +239,6 @@ class GemDisplay(InstructionGroup):
         self.time = 0
         self.hit = False
 
-        line_color = Color(242, 242, 242, 0.7)
         # left_pts = [Window.width/2-275, 100, Window.width/2-25, 100]
         # left_line = Line(points=left_pts, width=10)
         #
@@ -273,20 +250,19 @@ class GemDisplay(InstructionGroup):
         #
         # right_top_pts = [Window.width/2+300, 150, Window.width/2+300, 400]
         # right_top_line = Line(points=right_top_pts, width=10)
-        # self.size_anim = None
+        self.width_anim = None
 
-    # # change to display this gem being hit
-    # def on_hit(self):
-    #     self.color.a = 1
-    #     self.hit = True
-    #     self.size_anim = KFAnim((0, 2*gem_r), (1, 4*gem_r))
-    #     self.time = 0
-    #     self.on_update(0)
+    # change to display this gem being hit
+    def on_hit(self):
+        self.color.a = 1
+        self.hit = True
+        self.width_anim = KFAnim((0, self.width), (1, 3 * self.width))
+        self.time = 0
+        self.on_update(0)
 
     # change to display a passed gem
     def on_pass(self):
-        pass
-        # self.color.a = 0.2  # decrease color alpha
+        self.color.a = 0.2  # decrease color alpha
 
     # def set_seconds(self, t1, t2):
     #     if self.hit:
@@ -309,10 +285,11 @@ class GemDisplay(InstructionGroup):
 
     # useful if gem is to animate
     def on_update(self, dt):
-        # self.time += dt
-        # position = self.anim.eval(self.time)
-        # self.line.points = [position[0], position[1], position[0], position[1]]
-        # return self.anim.is_active(self.time)
+        if self.hit:
+            width = self.width_anim.eval(self.time)
+            self.line.width = width
+            self.time += dt
+            return self.width_anim.is_active(self.time)
         return True
 
 
@@ -335,44 +312,39 @@ class BarlineDisplay(InstructionGroup):
         return True
 
 
-# Displays one button on the nowbar
-class ButtonDisplay(InstructionGroup):
-    def __init__(self, lane, pos, color):
-        super(ButtonDisplay, self).__init__()
-        self.lane = lane
-        self.pos = pos
-
-        self.orig_a = 0.5
-
-        self.color = Color(color[0], color[1], color[2], self.orig_a)
+# Displays one of the 4 side bars
+class SideBarDisplay(InstructionGroup):
+    def __init__(self, direction):
+        super(SideBarDisplay, self).__init__()
+        self.direction = direction
+        direction_line_points = {
+            'left': [Window.width/2-275, bottom_y, Window.width/2-25, bottom_y],
+            'right': [Window.width/2+25, bottom_y, Window.width/2+275, bottom_y],
+            'up_left': [left_x, 150, left_x, 400],
+            'up_right': [right_x, 150, right_x, 400]
+        }
+        self.points = direction_line_points[self.direction]
+        self.line = Line(points=self.points, width=10)
+        self.orig_a = 0.7
+        self.color = Color(242, 242, 242, self.orig_a)
         self.add(self.color)
-
-        self.circle = CEllipse(cpos = pos, size = (2*gem_r, 2*gem_r), segments = 40)
-        self.add(self.circle)
-
-        self.miss_color = Color(0, 0, 0, 1)
-        self.miss_circle = CEllipse(cpos = pos, size = (1.5*gem_r, 1.5*gem_r), segments = 40)
+        self.add(self.line)
 
         self.miss = True
-
         # Detecting TapGesture
         self.tapped = False
 
-    # displays when button is down (and if it hit a gem)
-    def on_down(self, hit):
+    # displays when side bar is tapped (and if it hit a gem)
+    def on_tap(self, hit):
         if hit:
             self.color.a = 1
         else:
             self.miss = True
-            self.add(self.miss_color)
-            self.add(self.miss_circle)
 
     # back to normal state
-    def on_up(self):
+    def on_release_tap(self):
         self.color.a = self.orig_a
         if self.miss:
-            self.remove(self.miss_color)
-            self.remove(self.miss_circle)
             self.miss = False
 
     def set_tapped(self, tapped):
@@ -380,34 +352,35 @@ class ButtonDisplay(InstructionGroup):
 
 
 # This class monitors the location of the hand and determines if a tap on
-# a button happened. Each TapGesture is associated with a button (one-to-one
-# correspondence). The TapGesture also changes the display of the button
-# to show the button is being tapped.
-# the callback function takes a single argument: button being tapped
+# a SideBar happened. Each TapGesture is associated with a SideBar (one-to-one
+# correspondence). The TapGesture also changes the display of the SideBar
+# to show the SideBar is being tapped.
+# the callback function takes a single argument: SideBar being tapped
 class TapGesture(object):
-    def __init__(self, button, tap_callback, release_tap_callback):
+    def __init__(self, side_bar, tap_callback, release_tap_callback):
         super(TapGesture, self).__init__()
-        self.button = button
+        self.side_bar = side_bar
         self.tap_callback = tap_callback
         self.release_tap_callback = release_tap_callback
 
-        self.x_threshold = 40 # diff in x
-        self.y_threshold = 20  # diff in y
+        x1, y1, x2, y2 = self.side_bar.points
+        self.x_range = sorted([x1, x2])
+        self.y_range = sorted([y1, y2])
+
+        self.x_threshold = 20 # room for error in x
+        self.y_threshold = 20  # room for error in y
 
     def set_hand_pos(self, pos):
-        # check difference in x
-        x_displacement = pos[0] - self.button.pos[0]
-        x_dist = abs(x_displacement)
-        # check difference in y
-        y_displacement = pos[1] - self.button.pos[1]
-        y_dist = abs(y_displacement)
-        if y_dist < self.y_threshold and x_dist < self.x_threshold:
-            if not self.button.tapped:
-                self.button.set_tapped(True)
-                self.tap_callback(self.button)
-        elif self.button.tapped:
-            self.button.set_tapped(False)
-            self.release_tap_callback(self.button)
+        # check if x and y is between allowed range & room for error
+        if pos[0] > self.x_range[0] - self.x_threshold and pos[0] < self.x_range[1] + self.x_threshold and \
+            pos[1] > self.y_range[0] - self.y_threshold and pos[1] < self.y_range[1] + self.y_threshold:
+            if not self.side_bar.tapped:
+                self.side_bar.set_tapped(True)
+                self.tap_callback(self.side_bar)
+        # if hand position is outside side bar and side_bar was tapped, mark as untapped
+        elif self.side_bar.tapped:
+            self.side_bar.set_tapped(False)
+            self.release_tap_callback(self.side_bar)
 
 
 class Translate(InstructionGroup):
@@ -446,25 +419,16 @@ class Translate(InstructionGroup):
         self.anim_group.on_update()
 
 
-# Displays and controls all game elements: Nowbar, Buttons, BarLines, Gems.
+# Displays and controls all game elements: SideBars, BarLines?, Gems.
 class BeatMatchDisplay(InstructionGroup):
     def __init__(self, gem_data, barline_times, end_game_callback):
         super(BeatMatchDisplay, self).__init__()
-        self.now_bar_color = (1, 1, 1, 0.5)
-        line_pts = [0, bar_y, Window.width, bar_y]
-        self.now_bar = Line(points=line_pts, width=5)
 
-        # self.add(Color(*self.now_bar_color))
-        # self.add(self.now_bar)
-
-        x_s = [ Window.width / 5 * i + Window.width / 10 for i in range(5) ]
-        # pastels red, orange, yellow, green, blue
-        rgb_colors = [(255,179,186), (255,223,186), (255,255,186), (186,255,201), (186,225,255)]
-        self.colors = [[rgb/255 for rgb in rgb_color] for rgb_color in rgb_colors]
-        self.buttons = [ ButtonDisplay(i, (x_s[i], bar_y), self.colors[i]) for i in range(len(x_s)) ]
-
-        # for button in self.buttons:
-        #     self.add(button)
+        self.side_bars = {}
+        for direction in directions:
+            side_bar = SideBarDisplay(direction)
+            self.add(side_bar)
+            self.side_bars[direction] = side_bar
 
         self.gem_data = gem_data
         self.gem_index = 0
@@ -489,12 +453,12 @@ class BeatMatchDisplay(InstructionGroup):
             self.gems[gem_idx].on_pass()
 
     # called by Player. Causes the right thing to happen
-    def on_button_down(self, lane, hit):
-        self.buttons[lane].on_down(hit)
+    def on_tap(self, direction, hit):
+        self.side_bars[direction].on_tap(hit)
 
     # called by Player. Causes the right thing to happen
-    def on_button_up(self, lane):
-        self.buttons[lane].on_up()
+    def on_release_tap(self, direction):
+        self.side_bars[direction].on_release_tap()
 
     def on_end_game(self):
         self.clear()
@@ -506,10 +470,10 @@ class BeatMatchDisplay(InstructionGroup):
     def on_update(self, frame):
         second = frame / Audio.sample_rate
         if self.gem_index < len(self.gem_data):
-            gem_time, gem_lane = self.gem_data[self.gem_index]
+            gem_time, gem_label = self.gem_data[self.gem_index]
+            gem_direction = direction_number_map[int(gem_label)]
             if gem_time - num_seconds < second:
                 # print("release")
-                directions = ['up_left', 'left', 'right', 'up_right']
                 direction = random.choice(directions)
                 gem = GemDisplay(second, direction)
                 self.gems.append(gem)
@@ -537,18 +501,18 @@ class Player(object):
         self.pass_gem_index = -1  # most recent gem that went past the slop window
         self.slop_window = 0.1 # +-100 ms
 
-        self.tap_gestures = [TapGesture(button, self.on_tap, self.on_release_tap) for button in self.display.buttons]
+        self.tap_gestures = [TapGesture(side_bar, self.on_tap, self.on_release_tap) for direction, side_bar in self.display.side_bars.items()]
 
-    # called by MainWidget
-    def on_button_down(self, lane):
+    def on_tap(self, side_bar):
         second = self.audio_ctrl.get_frame() / Audio.sample_rate
         hit = False
         gem_index = self.pass_gem_index + 1
         new_pass_gem_index = self.pass_gem_index
         while gem_index < len(self.gem_data) and self.gem_data[gem_index][0] <= second + self.slop_window:
-            gem_lane = self.gem_data[gem_index][1]
+            gem_label = self.gem_data[gem_index][1]
+            gem_direction = direction_number_map[int(gem_label)]
             # TODO: edit to use tapping gestures
-            if gem_lane == lane:  # Hit
+            if gem_direction == side_bar.direction:  # Hit
                 hit = True
                 self.display.gem_hit(gem_index)
                 self.score += 1
@@ -557,39 +521,13 @@ class Player(object):
             new_pass_gem_index = gem_index
             gem_index += 1
         self.pass_gem_index = new_pass_gem_index
-        self.display.on_button_down(lane, hit)
+        self.display.on_tap(side_bar.direction, hit)
         # self.audio_ctrl.set_mute(not hit)
         # if not hit:  # Temporal miss or Lane miss
         #     self.audio_ctrl.play_sfx()
 
-    # called by MainWidget
-    def on_button_up(self, lane):
-        self.display.on_button_up(lane)
-
-    def on_tap(self, button):
-        second = self.audio_ctrl.get_frame() / Audio.sample_rate
-        hit = False
-        gem_index = self.pass_gem_index + 1
-        new_pass_gem_index = self.pass_gem_index
-        while gem_index < len(self.gem_data) and self.gem_data[gem_index][0] <= second + self.slop_window:
-            gem_lane = self.gem_data[gem_index][1]
-            # TODO: edit to use tapping gestures
-            if gem_lane == button.lane:  # Hit
-                hit = True
-                self.display.gem_hit(gem_index)
-                self.score += 1
-            else: # Else, it's a Lane miss
-                self.display.gem_pass(gem_index)  # gem can no longer by hit
-            new_pass_gem_index = gem_index
-            gem_index += 1
-        self.pass_gem_index = new_pass_gem_index
-        self.display.on_button_down(button.lane, hit)
-        # self.audio_ctrl.set_mute(not hit)
-        # if not hit:  # Temporal miss or Lane miss
-        #     self.audio_ctrl.play_sfx()
-
-    def on_release_tap(self, button):
-        self.display.on_button_up(button.lane)
+    def on_release_tap(self, side_bar):
+        self.display.on_release_tap(side_bar.direction)
 
     def on_end_game(self):
         self.score = 0
