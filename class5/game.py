@@ -245,24 +245,29 @@ class GemDisplay(InstructionGroup):
         self.time = second;
 
         if self.direction == 'left':
-            self.anim = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds, Window.width/2-300, 20))
+            self.anim = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds, Window.width/2-200, 20))
         elif self.direction == 'right':
             self.anim = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds, Window.width/2+200, 20))
         elif self.direction == 'up_left':
-            self.anim = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds, Window.width/2-300, Window.height/2))
+            self.anim = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds, Window.width/2-420, Window.height/2))
         elif self.direction == 'up_right':
-            self.anim = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds, Window.width/2+300, Window.height/2))
+            self.anim = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds, Window.width/2+420, Window.height/2))
 
         self.time = 0
         self.hit = False
 
         line_color = Color(242, 242, 242, 0.7)
-
-        left_top_pts = [Window.width/2-300, 150, Window.width/2-300, 400]
-        left_top_line = Line(points=left_top_pts, width=10)
-
-        right_top_pts = [Window.width/2+300, 150, Window.width/2+300, 400]
-        right_top_line = Line(points=right_top_pts, width=10)
+        # left_pts = [Window.width/2-275, 100, Window.width/2-25, 100]
+        # left_line = Line(points=left_pts, width=10)
+        #
+        # right_pts = [Window.width/2+25, 100, Window.width/2+275, 100]
+        # right_line = Line(points=right_pts, width=10)
+        #
+        # left_top_pts = [Window.width/2-300, 150, Window.width/2-300, 400]
+        # left_top_line = Line(points=left_top_pts, width=10)
+        #
+        # right_top_pts = [Window.width/2+300, 150, Window.width/2+300, 400]
+        # right_top_line = Line(points=right_top_pts, width=10)
         # self.size_anim = None
 
     # # change to display this gem being hit
