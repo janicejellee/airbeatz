@@ -228,13 +228,17 @@ class GemDisplay(InstructionGroup):
         num_seconds_to_screen_edge_bottom = num_seconds / (Window.height/2 - bottom_y) * Window.height/2
         num_seconds_to_screen_edge_sides = num_seconds / (Window.width/2 - left_x) * Window.width/2
         if self.direction == 'left':
-            self.pos_anim = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_bottom, Window.width/2-200, 0))
+            self.pos_anim_0 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_bottom, Window.width/2-400, 0))
+            self.pos_anim_1 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_bottom, Window.width/2-100, 0))
         elif self.direction == 'right':
-            self.pos_anim = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_bottom, Window.width/2+200, 0))
+            self.pos_anim_0 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_bottom, Window.width/2+400, 0))
+            self.pos_anim_1 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_bottom, Window.width/2+100, 0))
         elif self.direction == 'up_left':
-            self.pos_anim = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_sides, 0, Window.height/2))
+            self.pos_anim_0 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_sides, 0, Window.height/2+100))
+            self.pos_anim_1 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_sides, 0, Window.height/2-150))
         elif self.direction == 'up_right':
-            self.pos_anim = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_sides, Window.width, Window.height/2))
+            self.pos_anim_0 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_sides, Window.width, Window.height/2+100))
+            self.pos_anim_1 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_sides, Window.width, Window.height/2-150))
 
         self.time = 0
         self.hit = False
@@ -266,10 +270,11 @@ class GemDisplay(InstructionGroup):
         self.color.a = 0.2  # decrease color alpha
 
     def set_second(self, second):
-        if self.pos_anim:
-            position = self.pos_anim.eval(second)
-            self.line.points = [position[0], position[1], position[0], position[1]]
-            return self.pos_anim.is_active(second)
+        if self.pos_anim_0:
+            p0 = self.pos_anim_0.eval(second)
+            p1 = self.pos_anim_1.eval(second)
+            self.line.points = [p0[0], p0[1], p1[0], p1[1]]
+            return self.pos_anim_0.is_active(second)
         return True
 
     # useful if gem is to animate
