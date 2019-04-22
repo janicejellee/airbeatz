@@ -56,7 +56,6 @@ class MainWidget(BaseWidget) :
         self.left_hand_pos = [0,0,0]
         self.right_hand_pos = [0,0,0]
 
-
     def on_key_down(self, keycode, modifiers):
         # play / pause toggle
         if keycode[1] == 'p':
@@ -78,6 +77,19 @@ class MainWidget(BaseWidget) :
         self.display.on_end_game()
         self.player.on_end_game()
 
+    # set the hand position as a 3D vector ranging from [0,0,0] to [1,1,1]
+    def set_right_hand_pos(self, pos):
+        self.right_hand_disp.set_pos(pos)
+        screen_pos = self.right_hand_disp.to_screen_coords(pos)
+        for tap_gesture in self.player.tap_gestures:
+            tap_gesture.set_hand_pos(screen_pos)
+
+    def set_left_hand_pos(self, pos):
+        self.left_hand_disp.set_pos(pos)
+        screen_pos = self.left_hand_disp.to_screen_coords(pos)
+        for tap_gesture in self.player.tap_gestures:
+            tap_gesture.set_hand_pos(screen_pos)
+
     def on_update(self):
         leap_frame = self.leap.frame()
         pts = list(leap_two_palms(leap_frame))
@@ -85,8 +97,12 @@ class MainWidget(BaseWidget) :
         norm_pts = [scale_point(pt, kLeapRange) for pt in pts]
         self.left_hand_pos = norm_pts[0]
         self.right_hand_pos = norm_pts[1]
-        self.left_hand_disp.set_pos(self.left_hand_pos)
-        self.right_hand_disp.set_pos(self.right_hand_pos)
+
+        # self.left_hand_disp.set_pos(self.left_hand_pos)
+        # self.right_hand_disp.set_pos(self.right_hand_pos)
+
+        self.set_left_hand_pos(self.left_hand_pos)
+        self.set_right_hand_pos(self.right_hand_pos)
 
         frame = self.audio_ctrl.get_frame()
         self.display.on_update(frame)
@@ -246,8 +262,10 @@ class BarlineDisplay(InstructionGroup):
 
 # Displays one button on the nowbar
 class ButtonDisplay(InstructionGroup):
-    def __init__(self, pos, color):
+    def __init__(self, lane, pos, color):
         super(ButtonDisplay, self).__init__()
+        self.lane = lane
+        self.pos = pos
 
         self.orig_a = 0.5
 
@@ -261,6 +279,9 @@ class ButtonDisplay(InstructionGroup):
         self.miss_circle = CEllipse(cpos = pos, size = (1.5*gem_r, 1.5*gem_r), segments = 40)
 
         self.miss = True
+
+        # Detecting TapGesture
+        self.tapped = False
 
     # displays when button is down (and if it hit a gem)
     def on_down(self, hit):
@@ -278,8 +299,42 @@ class ButtonDisplay(InstructionGroup):
             self.remove(self.miss_color)
             self.remove(self.miss_circle)
             self.miss = False
+        
+    def set_tapped(self, tapped):
+        self.tapped = tapped
 
 
+# This class monitors the location of the hand and determines if a tap on
+# a button happened. Each TapGesture is associated with a button (one-to-one
+# correspondence). The TapGesture also changes the display of the button
+# to show the button is being tapped.
+# the callback function takes a single argument: button being tapped
+class TapGesture(object):
+    def __init__(self, button, tap_callback, release_tap_callback):
+        super(TapGesture, self).__init__()
+        self.button = button
+        self.tap_callback = tap_callback
+        self.release_tap_callback = release_tap_callback
+
+        self.x_threshold = 10 # diff in x
+        self.y_threshold = 20  # diff in y
+
+    def set_hand_pos(self, pos):
+        # check difference in x
+        x_displacement = pos[0] - self.button.pos[0]
+        x_dist = abs(x_displacement)
+        # check difference in y
+        y_displacement = pos[1] - self.button.pos[1]
+        y_dist = abs(y_displacement)
+        if y_dist < self.y_threshold and x_dist < self.x_threshold:
+            if not self.button.tapped:
+                self.button.set_tapped(True)
+                self.tap_callback(self.button)
+        elif self.button.tapped:
+            self.button.set_tapped(False)
+            self.release_tap_callback(self.button)
+
+            
 class Translate(InstructionGroup):
     def __init__(self):
         super(Translate, self).__init__()
@@ -326,7 +381,8 @@ class BeatMatchDisplay(InstructionGroup):
         # pastels red, orange, yellow, green, blue
         rgb_colors = [(255,179,186), (255,223,186), (255,255,186), (186,255,201), (186,225,255)]
         self.colors = [[rgb/255 for rgb in rgb_color] for rgb_color in rgb_colors]
-        self.buttons = [ ButtonDisplay((x_s[i], bar_y), self.colors[i]) for i in range(len(x_s)) ]
+        self.buttons = [ ButtonDisplay(i, (x_s[i], bar_y), self.colors[i]) for i in range(len(x_s)) ]
+
         for button in self.buttons:
             self.add(button)
 
@@ -398,6 +454,8 @@ class Player(object):
         self.pass_gem_index = -1  # most recent gem that went past the slop window
         self.slop_window = 0.1 # +-100 ms
 
+        self.tap_gestures = [TapGesture(button, self.on_tap, self.on_release_tap) for button in self.display.buttons]
+
     # called by MainWidget
     def on_button_down(self, lane):
         second = self.audio_ctrl.get_frame() / Audio.sample_rate
@@ -424,6 +482,31 @@ class Player(object):
     # called by MainWidget
     def on_button_up(self, lane):
         self.display.on_button_up(lane)
+
+    def on_tap(self, button):
+        second = self.audio_ctrl.get_frame() / Audio.sample_rate
+        hit = False
+        gem_index = self.pass_gem_index + 1
+        new_pass_gem_index = self.pass_gem_index
+        while gem_index < len(self.gem_data) and self.gem_data[gem_index][0] <= second + self.slop_window:
+            gem_lane = self.gem_data[gem_index][1]
+            # TODO: edit to use tapping gestures
+            if gem_lane == button.lane:  # Hit
+                hit = True
+                self.display.gem_hit(gem_index)
+                self.score += 1
+            else: # Else, it's a Lane miss
+                self.display.gem_pass(gem_index)  # gem can no longer by hit
+            new_pass_gem_index = gem_index
+            gem_index += 1
+        self.pass_gem_index = new_pass_gem_index
+        self.display.on_button_down(button.lane, hit)
+        self.audio_ctrl.set_mute(not hit)
+        if not hit:  # Temporal miss or Lane miss
+            self.audio_ctrl.play_sfx()
+
+    def on_release_tap(self, button):
+        self.display.on_button_up(button.lane)
 
     def on_end_game(self):
         self.score = 0
