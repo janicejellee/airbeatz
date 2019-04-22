@@ -1,324 +1,447 @@
-# common import
 import sys
 sys.path.append('..')
 from common.core import *
-from common.gfxutil import *
-from common.synth import *
 from common.audio import *
 from common.mixer import *
-from common.modifier import *
-from common.clock import *
-from common.metro import *
-from common.wavesrc import *
 from common.wavegen import *
-from common.kivyparticle import ParticleSystem
+from common.wavesrc import *
+from common.gfxutil import *
 
-import numpy as np
+from kivy.graphics.instructions import InstructionGroup
+from kivy.graphics import Color, Ellipse, Line, Rectangle
+from kivy.graphics import PushMatrix, PopMatrix, Translate, Scale, Rotate
+from kivy.clock import Clock as kivyClock
+
 import random
+import numpy as np
+import bisect
 
-# Choose your mode:
-# MODE = 'kinect'
-MODE = 'leap'
+from common.leaputil import *
+import Leap
 
-if MODE == 'leap':
-    from common.leaputil import *
-    import Leap
-
-if MODE == 'kinect':
-    from common.kinect import *
-
-def parse_gem_data(gem_data_path):
-    buffers = {}
-    f = open(gem_data_path)
-    lines = f.readlines()
-    gems = []
-    for line in lines:
-        tokens = line.strip().split('\t')
-        time = float(tokens[0])
-        gems.append(time)
-        # x_position = int(tokens[1])
-        # gems.append((time, x_position))
-    return gems
-
-line_y = 80
-disappear_y = -200
-falling_seconds = 2
-
+num_seconds = 3  # how long it takes for lines to move from center to bars
 
 class MainWidget(BaseWidget) :
     def __init__(self):
         super(MainWidget, self).__init__()
 
-        self.audio = Audio(2)
-        self.synth = Synth("../data/FluidR3_GM.sf2")
-        self.tempo_map  = SimpleTempoMap(120)
-        self.sched = AudioScheduler(self.tempo_map)
-        self.sched.set_generator(self.synth)
+        self.song_data = SongData()
+        gem_data = self.song_data.read_gem_data('../data/gem_data.txt')
+        barline_times = self.song_data.read_barline_data('../data/barline_data.txt')
+        self.display = BeatMatchDisplay(gem_data, barline_times, self.on_end_game)
+        self.canvas.add(self.display)
 
-        # create mixer to use wave buffers
-        self.mixer = Mixer()
-        self.mixer.set_gain(0.2)
-        self.mixer.add(self.sched)
-        self.audio.set_generator(self.mixer)
+        self.audio_ctrl = AudioController('../data/SmokeOnTheWater')
+        self.audio_ctrl.toggle()
+        self.audio = self.audio_ctrl.audio
 
-        self.wave_file = WaveFile("../data/mario.wav")
-        self.wave_gen = None
+        self.player = Player(gem_data, self.display, self.audio_ctrl)
 
-        self.volume = 60
-        self.channel = 0
+        self.label = topleft_label()
+        self.add_widget(self.label)
 
-        self.synth.program(self.channel, 0, 22)
-
-        if MODE == 'leap':
-            self.leap = Leap.Controller()
-        elif MODE == 'kinect':
-            self.kinect = Kinect()
-            self.kinect.add_joint(Kinect.kRightHand)
+        self.leap = Leap.Controller()
 
         # set up size / location of 3DCursor object
         kMargin = Window.width * 0.05
         kCursorSize = Window.width - 2 * kMargin, Window.height - 2 * kMargin
         kCursorPos = kMargin, kMargin
 
-        # self.hand_disp = Cursor3D(kCursorSize, kCursorPos, (.2, .6, .2))
-        # self.canvas.add(self.hand_disp)
-
-        # self.inactive_alpha = 0.3
-
         self.left_hand_disp = Cursor3D(kCursorSize, kCursorPos, (.2, .2, .6))
-        # self.left_hand_disp.set_alpha(self.inactive_alpha)
         self.canvas.add(self.left_hand_disp)
 
         self.right_hand_disp = Cursor3D(kCursorSize, kCursorPos, (.2, .6, .2))
-        # self.right_hand_disp.set_alpha(self.inactive_alpha)
         self.canvas.add(self.right_hand_disp)
-
-
-        self.label = topleft_label()
-        self.add_widget(self.label)
-
-        self.idx = 0
-        self.playing = False
-
-        # draws hit line
-        # i tried to make a gradient but didn't work out lol, might add later
-
-        c1 = Color(77/255, 148/255, 255/255, 0.5)
-        # c2 = Color(153/255, 255/255, 187, 0.5) # green
-        # c3 = Color(204/255, 51/255, 0, 0.5) # lol i forgot
-
-        # line_pts_top2 = [0, 86, Window.width, 86]
-        # line_pts_top1 = [0, 83, Window.width, 83]
-        line_pts_mid = [0, line_y, Window.width, line_y]
-        # line_pts_bot1 = [0, 77, Window.width, 77]
-        # line_pts_bot2 = [0, 76, Window.width, 76]
-
-        # hit_line_top2 = Line(points=line_pts_top2, width=3)
-        # hit_line_top1 = Line(points=line_pts_top1, width=3)
-        hit_line_mid = Line(points=line_pts_mid, width=5)
-        # hit_line_bot1 = Line(points=line_pts_bot1, width=3)
-        # hit_line_bot2 = Line(points=line_pts_bot2, width=3)
-
-        self.canvas.add(c1);
-        self.canvas.add(hit_line_mid);
-        # self.canvas.add(c2);
-        # self.canvas.add(hit_line_top1);
-        # self.canvas.add(hit_line_bot1);
-        # self.canvas.add(c3);
-        # self.canvas.add(hit_line_top2);
-        # self.canvas.add(hit_line_bot2);
-
-        self.x_positions = [(Window.width - 100) / 6 * i + 50 for i in range(6)]
-
-        self.objects = AnimGroup()
-        # circle = NoteCircle(20)
-        # circle.fall()
-        # self.objects.add(circle)
-        # self.canvas.add(self.objects)
-
-        # particle system
-        self.particle_systems = []
-        #
-        # ps = ParticleSystem('particle/particle.pex')
-        # ps.emitter_x = 100
-        # ps.emitter_y = Window.height
-        # ps.start()
-        # self.add_widget(ps)
-        # self.particle_systems.append([ps,True])
-
-        self.star_index = 0
-        self.time_checker_index = 0
-        self.gem_checker_index = 0
-        self.clock = Clock()
-
-        self.mode = 'easy'
-        self.gem_data_path = "../data/gem_data_easy.txt"
-        self.time_instants = parse_gem_data(self.gem_data_path)
-        self.times = [(time, random.random() * (Window.width - 400) + 200) for time in self.time_instants]
-
+        
         self.left_hand_pos = [0,0,0]
         self.right_hand_pos = [0,0,0]
-        self.score = 0
 
-    def add_falling_star(self, x, start_time):
-        ps = ParticleSystem('particle/particle.pex')
-        ps.emitter_x = x
-        ps.emitter_y = Window.height
-        ps.start()
-        self.add_widget(ps)
-        # self.particle_systems.append([ps, True])
-        total_seconds = falling_seconds / (Window.height - line_y) * (Window.height - disappear_y)
-        y_anim = KFAnim((0, Window.height), (total_seconds, disappear_y))
-        self.particle_systems.append([ps, y_anim, start_time])
-
-    def set_mode(self, mode):
-        self.mode = mode
-
-    def set_gem_data(self, gem_data_path):
-        self.stop()
-        self.gem_data_path = gem_data_path
-        self.time_instants = parse_gem_data(self.gem_data_path)
-        self.times = [(time, random.random() * (Window.width - 400) + 200) for time in self.time_instants]
-
-    def start(self):
-        self.wave_gen = WaveGenerator(self.wave_file)
-        self.mixer.add(self.wave_gen)
-
-    def stop(self):
-        if self.wave_gen in self.mixer.generators:
-            self.mixer.remove(self.wave_gen)
-        for ps_info in self.particle_systems[self.star_index:]:
-            # print (self.particle_systems)
-            ps, y_anim, start_time = ps_info
-            self.remove_widget(ps)
-        self.particle_systems = []
-        self.time_checker_index = 0
-        self.gem_checker_index = 0
-        self.star_index = 0
-        self.wave_gen = None
 
     def on_key_down(self, keycode, modifiers):
-        if keycode[1] == 's':
-            if self.wave_gen is None:
-                self.start()
-            else:
-                self.stop()
-            
-        if keycode[1] == 'e':
-            self.set_mode('easy')
-            self.set_gem_data("../data/gem_data_easy.txt")
-            
-        if keycode[1] == 'h':
-            self.set_mode('hard')
-            self.set_gem_data("../data/gem_data_hard.txt")
+        # play / pause toggle
+        if keycode[1] == 'p':
+            self.audio_ctrl.toggle()
 
+        # button down
+        button_idx = lookup(keycode[1], '12345', (0,1,2,3,4))
+        if button_idx is not None:
+            self.player.on_button_down(button_idx)
 
-    # Check for HIT or MISS based on only hand position (no gestures yet)
-    # Either hand can touch any gems for now (maybe implement left / right hand gems later)
-    def check_hand(self, gem_x):  
-        x_threshold = 20  # within x_threshold screen units on either side of gem_x
-        y_threshold = 20  # within y_threshold screen units on top or bottom of line_y
-        left_hand_screen_coords = self.left_hand_disp.to_screen_coords(self.left_hand_pos)
-        if abs(left_hand_screen_coords[0] - gem_x) < x_threshold:
-            if abs(left_hand_screen_coords[1] - line_y) < y_threshold:
-                return True
-        right_hand_screen_coords = self.right_hand_disp.to_screen_coords(self.right_hand_pos)
-        if abs(right_hand_screen_coords[0] - gem_x) < x_threshold:
-            if abs(right_hand_screen_coords[1] - line_y) < y_threshold:
-                return True
-        return False
+    def on_key_up(self, keycode):
+        # button up
+        button_idx = lookup(keycode[1], '12345', (0,1,2,3,4))
+        if button_idx is not None:
+            self.player.on_button_up(button_idx)
 
-    def on_update(self) :
-        self.audio.on_update()
+    def on_end_game(self):
+        self.audio_ctrl.on_end_game()
+        self.display.on_end_game()
+        self.player.on_end_game()
 
-        self.objects.on_update()
-
-        self.label.text = ''
-
-        if MODE == 'leap':
-            # self.label.text += leap_info(self.leap)
-            leap_frame = self.leap.frame()
-            # pt = leap_one_palm(leap_frame)
-            # norm_pt = scale_point(pt, kLeapRange)
-            pts = list(leap_two_palms(leap_frame))
-            # pts.sort(key=lambda pt: pt[0])  # sort by increasing x (hand with smaller x is first)
-            norm_pts = [scale_point(pt, kLeapRange) for pt in pts]
-            self.left_hand_pos = norm_pts[0]
-            self.right_hand_pos = norm_pts[1]
-
-        elif MODE == 'kinect':
-            self.kinect.on_update()
-            pt = self.kinect.get_joint(Kinect.kRightHand)
-            norm_pt = scale_point(pt, kKinectRange)
-
-        # self.hand_disp.set_pos(norm_pt)
+    def on_update(self):
+        leap_frame = self.leap.frame()
+        pts = list(leap_two_palms(leap_frame))
+        # pts.sort(key=lambda pt: pt[0])  # sort by increasing x (hand with smaller x is first)
+        norm_pts = [scale_point(pt, kLeapRange) for pt in pts]
+        self.left_hand_pos = norm_pts[0]
+        self.right_hand_pos = norm_pts[1]
         self.left_hand_disp.set_pos(self.left_hand_pos)
         self.right_hand_disp.set_pos(self.right_hand_pos)
 
-        # self.label.text += 'x=%d y=%d z=%d\n' % (pt[0], pt[1], pt[2])
-        # self.label.text += 'x=%.2f y=%.2f z=%.2f\n' % (norm_pt[0], norm_pt[1], norm_pt[2])
+        frame = self.audio_ctrl.get_frame()
+        self.display.on_update(frame)
+        self.audio_ctrl.on_update()
+        self.player.on_update()
+        self.label.text = ''
+        self.label.text += 'Score: %s\n' % (self.player.score)
 
-        # self.label.text += 'x=%d y=%d z=%d\n' % (pts[0][0], pts[0][1], pts[0][2])
-        # self.label.text += 'x=%.2f y=%.2f z=%.2f\n' % (norm_pts[0][0], norm_pts[0][1], norm_pts[0][2])
 
-        # If song is playing:
-        if self.wave_gen is not None:
-            # self.label.text += 'frame=%.2f\n' % (self.wave_gen.frame)
-            # self.label.text += 'seconds=%.2f\n' % (self.wave_gen.frame / Audio.sample_rate)
-            self.label.text += 'Hit the gems on the line!\n'
-            self.label.text += 'Mode: %s\n' % (self.mode)
-            self.label.text += 'Press s to stop\n'
-            self.label.text += 'Score: %d\n' % (self.score)
+# creates the Audio driver
+# creates a song and loads it with solo and bg audio tracks
+# creates snippets for audio sound fx
+class AudioController(object):
+    def __init__(self, song_path):  # song_path is without the "_bg.wav", "_solo.wav"
+        super(AudioController, self).__init__()
+        self.audio = Audio(2)
+        self.mixer = Mixer()
+        self.mixer.set_gain(0.2)
+        self.audio.set_generator(self.mixer)
+        self.song_path = song_path
+        
+        self.wave_file_bg = WaveFile(song_path + "_bg.wav")
+        self.wave_gen_bg = WaveGenerator(self.wave_file_bg)
+        self.mixer.add(self.wave_gen_bg)
+        
+        self.wave_file_solo = WaveFile(song_path +  "_solo.wav")
+        self.wave_gen_solo = WaveGenerator(self.wave_file_solo)
+        self.mixer.add(self.wave_gen_solo)
 
-            seconds = self.wave_gen.frame / Audio.sample_rate
+    # start / stop the song
+    def toggle(self):
+        self.wave_gen_bg.play_toggle()
+        self.wave_gen_solo.play_toggle()
 
-            # testing times
-            if (self.time_checker_index < len(self.times)):
-                time, x = self.times[self.time_checker_index]
-                # current_time = self.clock.get_time()
-                # if current_time > time:
-                if seconds + falling_seconds > time:
-                    # self.add_falling_star(x, current_time)
-                    self.add_falling_star(x, seconds)
-                    self.time_checker_index += 1
-
-            if (self.gem_checker_index < len(self.times)):
-                time, x = self.times[self.gem_checker_index]
-                if seconds > time:
-                    hit = self.check_hand(x)
-                    # TODO: animate 'HIT' or 'MISS'
-                    if hit:
-                        # Remove gem at the line
-                        ps = self.particle_systems[self.star_index][0]
-                        self.remove_widget(ps)
-                        ps.stop()
-                        self.star_index += 1
-                        self.score += 1
-                    # If MISS, gem continues to fall below the line
-                    self.gem_checker_index += 1
-
-            for ps_info in self.particle_systems[self.star_index:]:
-                ps, y_anim, start_time = ps_info
-                y = y_anim.eval(seconds - start_time)
-                # y = y_anim.eval(self.clock.get_time() - start_time)
-                # ps.emitter_y = ps.emitter_y - 5
-                ps.emitter_y = y
-                if ps.emitter_y < disappear_y + 5:
-                    self.star_index += 1
-                    self.remove_widget(ps)
-                    ps.stop()
+    # mute / unmute the solo track
+    def set_mute(self, mute):
+        if mute:
+            self.wave_gen_solo.set_gain(0)
         else:
-            self.label.text += 'Mode: %s\n' % (self.mode)
-            self.label.text += 'Press s to start\n'
-            self.label.text += 'Press e for easy mode\n'
-            self.label.text += 'Press h for hard mode\n'
+            self.wave_gen_solo.set_gain(1)
 
+    # play a sound-fx (miss sound)
+    def play_sfx(self):
+        buffers = make_wave_buffers("../data/mario.wav", "../data/miss_region.txt")
+        miss_buffer = buffers['miss']
+        gen = WaveGenerator(miss_buffer)
+        self.mixer.add(gen)
+
+    def get_frame(self):
+        return self.wave_gen_bg.frame
+
+    def on_end_game(self):  # reset
+        self.wave_gen_bg.reset()
+        self.wave_gen_solo.reset()
+        self.wave_gen_solo.set_gain(1)
+
+    # needed to update audio
+    def on_update(self):
+        self.audio.on_update()
+
+
+# holds data for gems and barlines.
+class SongData(object):
+    def __init__(self):
+        super(SongData, self).__init__()
+
+    # read the gems and song data. You may want to add a secondary filepath
+    # argument if your barline data is stored in a different txt file.
+    def read_gem_data(self, filepath):
+        f = open(filepath)
+        lines = f.readlines()
+        gems = []
+        for line in lines:
+            tokens = line.strip().split('\t')
+            time = float(tokens[0])
+            if time > num_seconds:
+                button = int(tokens[1])
+                gems.append((time, button))
+        return gems
+
+    def read_barline_data(self, filepath):
+        f = open(filepath)
+        lines = f.readlines()
+        times = []
+        for line in lines:
+            tokens = line.strip().split('\t')
+            time = float(tokens[0])
+            if time > num_seconds:
+                times.append(time)
+        return times
+    # TODO: figure out how gem and barline data should be accessed...
+
+bar_y = 80
+gem_r = 30
+
+# display for a single gem at a position with a color (if desired)
+class GemDisplay(InstructionGroup):
+    def __init__(self, pos, color):
+        super(GemDisplay, self).__init__()
+        self.x = pos[0]
+        self.orig_a = 0.5
+
+        self.color = Color(color[0], color[1], color[2], self.orig_a)
+        self.add(self.color)
+
+        self.circle = CEllipse(cpos = pos, size = (2*gem_r, 2*gem_r), segments = 40)
+        self.add(self.circle)
+
+        self.time = 0
+        self.hit = False
+        self.size_anim = None
+
+    # change to display this gem being hit
+    def on_hit(self):
+        self.color.a = 1
+        self.hit = True
+        self.size_anim = KFAnim((0, 2*gem_r), (1, 4*gem_r))
+        self.time = 0
+        self.on_update(0)
+
+    # change to display a passed gem
+    def on_pass(self):
+        self.color.a = 0.2  # decrease color alpha
+
+    def set_y(self, y):
+        if not self.hit:
+            self.circle.cpos = (self.x, y)
+
+    # useful if gem is to animate
+    def on_update(self, dt):
+        if self.hit:
+            size = self.size_anim.eval(self.time)
+            self.circle.set_csize((size, size))
+            self.time += dt
+            return self.size_anim.is_active(self.time)
         return True
+
+
+# display for a single barline
+class BarlineDisplay(InstructionGroup):
+    def __init__(self):
+        super(BarlineDisplay, self).__init__()
+        color = (192/255, 192/255, 192/255, 0.5)
+        self.color = Color(*color)
+        self.add(self.color)
+
+        line_pts = [0, Window.height, Window.width, Window.height]
+        self.line = Line(points=line_pts, width = 1)
+        self.add(self.line)
+
+    def set_y(self, y):
+        self.line.points = [0, y, Window.width, y]
+
+    def on_update(self, dt):
+        return True
+
+
+# Displays one button on the nowbar
+class ButtonDisplay(InstructionGroup):
+    def __init__(self, pos, color):
+        super(ButtonDisplay, self).__init__()
+
+        self.orig_a = 0.5
+
+        self.color = Color(color[0], color[1], color[2], self.orig_a)
+        self.add(self.color)
+
+        self.circle = CEllipse(cpos = pos, size = (2*gem_r, 2*gem_r), segments = 40)
+        self.add(self.circle)
+
+        self.miss_color = Color(0, 0, 0, 1)
+        self.miss_circle = CEllipse(cpos = pos, size = (1.5*gem_r, 1.5*gem_r), segments = 40)
+
+        self.miss = True
+
+    # displays when button is down (and if it hit a gem)
+    def on_down(self, hit):
+        if hit:
+            self.color.a = 1
+        else:
+            self.miss = True
+            self.add(self.miss_color)
+            self.add(self.miss_circle)
+
+    # back to normal state
+    def on_up(self):
+        self.color.a = self.orig_a
+        if self.miss:
+            self.remove(self.miss_color)
+            self.remove(self.miss_circle)
+            self.miss = False
+
+
+class Translate(InstructionGroup):
+    def __init__(self):
+        super(Translate, self).__init__()
+        self.anim_group = AnimGroup()
+        self.obj_anims = []
+        self.obj_index = 0
+        self.add(self.anim_group)
+
+    def add_obj(self, obj, second):
+        self.anim_group.add(obj)
+        y_anim = KFAnim((second, Window.height), (second + num_seconds / (Window.height - bar_y) * Window.height, 0))
+        self.obj_anims.append((obj, y_anim))
+
+    def on_end_game(self):  # reset
+        self.obj_anims = []
+        self.anim_group.clear()
+        self.obj_index = 0
+
+    def on_update(self, second):
+        new_obj_index = self.obj_index
+        for i in range(self.obj_index, len(self.obj_anims)):
+            obj, y_anim = self.obj_anims[i]
+            y = y_anim.eval(second)
+            obj.set_y(y)
+            if y == 0:
+                new_obj_index = i
+                self.anim_group.remove(obj)
+        self.obj_index = new_obj_index
+        self.anim_group.on_update()
+
+
+# Displays and controls all game elements: Nowbar, Buttons, BarLines, Gems.
+class BeatMatchDisplay(InstructionGroup):
+    def __init__(self, gem_data, barline_times, end_game_callback):
+        super(BeatMatchDisplay, self).__init__()
+        self.now_bar_color = (1, 1, 1, 0.5)
+        line_pts = [0, bar_y, Window.width, bar_y]
+        self.now_bar = Line(points=line_pts, width=5)
+        
+        self.add(Color(*self.now_bar_color))
+        self.add(self.now_bar)
+
+        x_s = [ Window.width / 5 * i + Window.width / 10 for i in range(5) ]
+        # pastels red, orange, yellow, green, blue
+        rgb_colors = [(255,179,186), (255,223,186), (255,255,186), (186,255,201), (186,225,255)]
+        self.colors = [[rgb/255 for rgb in rgb_color] for rgb_color in rgb_colors]
+        self.buttons = [ ButtonDisplay((x_s[i], bar_y), self.colors[i]) for i in range(len(x_s)) ]
+        for button in self.buttons:
+            self.add(button)
+
+        self.gem_data = gem_data
+        self.gem_index = 0
+        self.barline_times = barline_times
+        self.barline_index = 0
+
+        self.gems = []
+
+        self.trans = Translate()
+        self.add(self.trans)
+
+        self.end_game_callback = end_game_callback
+
+    # called by Player. Causes the right thing to happen
+    def gem_hit(self, gem_idx):
+        if gem_idx < len(self.gems):
+            self.gems[gem_idx].on_hit()
+
+    # called by Player. Causes the right thing to happen
+    def gem_pass(self, gem_idx):
+        if gem_idx < len(self.gems):
+            self.gems[gem_idx].on_pass()
+
+    # called by Player. Causes the right thing to happen
+    def on_button_down(self, lane, hit):
+        self.buttons[lane].on_down(hit)
+
+    # called by Player. Causes the right thing to happen
+    def on_button_up(self, lane):
+        self.buttons[lane].on_up()
+
+    def on_end_game(self):
+        self.clear()
+        self.gem_index = 0
+        self.barline_index = 0
+        self.trans.on_end_game()
+
+    # call every frame to make gems and barlines flow down the screen
+    def on_update(self, frame):
+        second = frame / Audio.sample_rate
+        if self.gem_index < len(self.gem_data):
+            gem_time, gem_lane = self.gem_data[self.gem_index]
+            if gem_time - num_seconds < second:
+                gem = GemDisplay((Window.width / 5 * gem_lane + Window.width / 10, Window.height), self.colors[gem_lane])
+                self.gems.append(gem)
+                self.trans.add_obj(gem, second)
+                self.gem_index += 1
+        if self.barline_index < len(self.barline_times):
+            barline_time = self.barline_times[self.barline_index]
+            if barline_time - num_seconds < second:
+                self.trans.add_obj(BarlineDisplay(), second)
+                self.barline_index += 1
+        else:  # End game when no more barlines
+            self.end_game_callback()
+        self.trans.on_update(second)
+
+
+# Handles game logic and keeps score.
+# Controls the display and the audio
+class Player(object):
+    def __init__(self, gem_data, display, audio_ctrl):
+        super(Player, self).__init__()
+        self.score = 0
+        self.gem_data = gem_data
+        self.display = display
+        self.audio_ctrl = audio_ctrl
+        self.pass_gem_index = -1  # most recent gem that went past the slop window
+        self.slop_window = 0.1 # +-100 ms
+
+    # called by MainWidget
+    def on_button_down(self, lane):
+        second = self.audio_ctrl.get_frame() / Audio.sample_rate
+        hit = False
+        gem_index = self.pass_gem_index + 1
+        new_pass_gem_index = self.pass_gem_index
+        while gem_index < len(self.gem_data) and self.gem_data[gem_index][0] <= second + self.slop_window:
+            gem_lane = self.gem_data[gem_index][1]
+            # TODO: edit to use tapping gestures
+            if gem_lane == lane:  # Hit
+                hit = True
+                self.display.gem_hit(gem_index)
+                self.score += 1
+            else: # Else, it's a Lane miss
+                self.display.gem_pass(gem_index)  # gem can no longer by hit
+            new_pass_gem_index = gem_index
+            gem_index += 1
+        self.pass_gem_index = new_pass_gem_index
+        self.display.on_button_down(lane, hit)
+        self.audio_ctrl.set_mute(not hit)
+        if not hit:  # Temporal miss or Lane miss
+            self.audio_ctrl.play_sfx()
+
+    # called by MainWidget
+    def on_button_up(self, lane):
+        self.display.on_button_up(lane)
+
+    def on_end_game(self):
+        self.score = 0
+        self.pass_gem_index = -1
+
+    # needed to check if for pass gems (ie, went past the slop window)
+    def on_update(self):
+        second = self.audio_ctrl.get_frame() / Audio.sample_rate
+        gem_index = self.pass_gem_index + 1
+        while gem_index < len(self.gem_data) and self.gem_data[gem_index][0] <= second - self.slop_window:
+            self.display.gem_pass(gem_index)
+            self.audio_ctrl.set_mute(True)
+            gem_index += 1
+        self.pass_gem_index = gem_index - 1
+
 
 # for use with scale_point:
 # x, y, and z ranges to define a 3D bounding box
-kKinectRange = ( (-250, 700), (-200, 700), (-500, 0) )
 kLeapRange   = ( (-250, 250), (100, 500), (-200, 250) )
 
-# run(NoteCircle)
 run(MainWidget)
