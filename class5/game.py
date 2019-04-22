@@ -40,6 +40,26 @@ class MainWidget(BaseWidget) :
         self.label = topleft_label()
         self.add_widget(self.label)
 
+        # 4 lines
+        line_color = Color(242, 242, 242, 0.7)
+        left_pts = [Window.width/2-275, 100, Window.width/2-25, 100]
+        left_line = Line(points=left_pts, width=10)
+
+        right_pts = [Window.width/2+25, 100, Window.width/2+275, 100]
+        right_line = Line(points=right_pts, width=10)
+
+        left_top_pts = [Window.width/2-300, 150, Window.width/2-300, 400]
+        left_top_line = Line(points=left_top_pts, width=10)
+
+        right_top_pts = [Window.width/2+300, 150, Window.width/2+300, 400]
+        right_top_line = Line(points=right_top_pts, width=10)
+
+        self.canvas.add(line_color);
+        self.canvas.add(left_line);
+        self.canvas.add(right_line);
+        self.canvas.add(left_top_line);
+        self.canvas.add(right_top_line);
+
         self.leap = Leap.Controller()
 
         # set up size / location of 3DCursor object
@@ -52,7 +72,7 @@ class MainWidget(BaseWidget) :
 
         self.right_hand_disp = Cursor3D(kCursorSize, kCursorPos, (.2, .6, .2))
         self.canvas.add(self.right_hand_disp)
-        
+
         self.left_hand_pos = [0,0,0]
         self.right_hand_pos = [0,0,0]
 
@@ -123,11 +143,11 @@ class AudioController(object):
         self.mixer.set_gain(0.2)
         self.audio.set_generator(self.mixer)
         self.song_path = song_path
-        
+
         self.wave_file_bg = WaveFile(song_path + "_bg.wav")
         self.wave_gen_bg = WaveGenerator(self.wave_file_bg)
         self.mixer.add(self.wave_gen_bg)
-        
+
         self.wave_file_solo = WaveFile(song_path +  "_solo.wav")
         self.wave_gen_solo = WaveGenerator(self.wave_file_solo)
         self.mixer.add(self.wave_gen_solo)
@@ -242,22 +262,22 @@ class GemDisplay(InstructionGroup):
 
 
 # display for a single barline
-class BarlineDisplay(InstructionGroup):
-    def __init__(self):
-        super(BarlineDisplay, self).__init__()
-        color = (192/255, 192/255, 192/255, 0.5)
-        self.color = Color(*color)
-        self.add(self.color)
-
-        line_pts = [0, Window.height, Window.width, Window.height]
-        self.line = Line(points=line_pts, width = 1)
-        self.add(self.line)
-
-    def set_y(self, y):
-        self.line.points = [0, y, Window.width, y]
-
-    def on_update(self, dt):
-        return True
+# class BarlineDisplay(InstructionGroup):
+#     def __init__(self):
+#         super(BarlineDisplay, self).__init__()
+#         color = (192/255, 192/255, 192/255, 0.5)
+#         self.color = Color(*color)
+#         self.add(self.color)
+#
+#         line_pts = [0, Window.height, Window.width, Window.height]
+#         self.line = Line(points=line_pts, width = 1)
+#         self.add(self.line)
+#
+#     def set_y(self, y):
+#         self.line.points = [0, y, Window.width, y]
+#
+#     def on_update(self, dt):
+#         return True
 
 
 # Displays one button on the nowbar
@@ -299,7 +319,7 @@ class ButtonDisplay(InstructionGroup):
             self.remove(self.miss_color)
             self.remove(self.miss_circle)
             self.miss = False
-        
+
     def set_tapped(self, tapped):
         self.tapped = tapped
 
@@ -334,7 +354,7 @@ class TapGesture(object):
             self.button.set_tapped(False)
             self.release_tap_callback(self.button)
 
-            
+
 class Translate(InstructionGroup):
     def __init__(self):
         super(Translate, self).__init__()
@@ -373,7 +393,7 @@ class BeatMatchDisplay(InstructionGroup):
         self.now_bar_color = (1, 1, 1, 0.5)
         line_pts = [0, bar_y, Window.width, bar_y]
         self.now_bar = Line(points=line_pts, width=5)
-        
+
         self.add(Color(*self.now_bar_color))
         self.add(self.now_bar)
 
