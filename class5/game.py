@@ -20,6 +20,9 @@ from common.leaputil import *
 import Leap
 
 num_seconds = 3  # how long it takes for lines to move from center to bars
+bottom_y = 100
+left_x = Window.width/2-300
+right_x = Window.width/2+300
 
 class MainWidget(BaseWidget) :
     def __init__(self):
@@ -42,16 +45,16 @@ class MainWidget(BaseWidget) :
 
         # 4 lines
         line_color = Color(242, 242, 242, 0.7)
-        left_pts = [Window.width/2-275, 100, Window.width/2-25, 100]
+        left_pts = [Window.width/2-275, bottom_y, Window.width/2-25, bottom_y]
         left_line = Line(points=left_pts, width=10)
 
-        right_pts = [Window.width/2+25, 100, Window.width/2+275, 100]
+        right_pts = [Window.width/2+25, bottom_y, Window.width/2+275, bottom_y]
         right_line = Line(points=right_pts, width=10)
 
-        left_top_pts = [Window.width/2-300, 150, Window.width/2-300, 400]
+        left_top_pts = [left_x, 150, left_x, 400]
         left_top_line = Line(points=left_top_pts, width=10)
 
-        right_top_pts = [Window.width/2+300, 150, Window.width/2+300, 400]
+        right_top_pts = [right_x, 150, right_x, 400]
         right_top_line = Line(points=right_top_pts, width=10)
 
         self.canvas.add(line_color);
@@ -242,16 +245,18 @@ class GemDisplay(InstructionGroup):
         self.line = Line(points=starting_pts, width=5)
         self.add(self.line)
 
-        self.time = second;
+        self.time = second
 
+        num_seconds_to_screen_edge_bottom = num_seconds / (Window.height/2 - bottom_y) * Window.height/2
+        num_seconds_to_screen_edge_sides = num_seconds / (Window.width/2 - left_x) * Window.width/2
         if self.direction == 'left':
-            self.anim = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds, Window.width/2-200, 20))
+            self.anim = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_bottom, Window.width/2-200, 0))
         elif self.direction == 'right':
-            self.anim = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds, Window.width/2+200, 20))
+            self.anim = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_bottom, Window.width/2+200, 0))
         elif self.direction == 'up_left':
-            self.anim = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds, Window.width/2-420, Window.height/2))
+            self.anim = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_sides, 0, Window.height/2))
         elif self.direction == 'up_right':
-            self.anim = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds, Window.width/2+420, Window.height/2))
+            self.anim = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_sides, Window.width, Window.height/2))
 
         self.time = 0
         self.hit = False
@@ -297,13 +302,18 @@ class GemDisplay(InstructionGroup):
             # elif self.direction == 'up_right':
             #     self.line.points = [x1+10, y1-3, x2+10, y2+2]
 
+    def set_second(self, second):
+        position = self.anim.eval(second)
+        self.line.points = [position[0], position[1], position[0], position[1]]
+        return self.anim.is_active(second)
+
     # useful if gem is to animate
     def on_update(self, dt):
-        position = self.anim.eval(self.time)
-        self.line.points = [position[0], position[1], position[0], position[1]]
-        self.time += dt
-        return self.anim.is_active(self.time)
-        # return True
+        # self.time += dt
+        # position = self.anim.eval(self.time)
+        # self.line.points = [position[0], position[1], position[0], position[1]]
+        # return self.anim.is_active(self.time)
+        return True
 
 
 # display for a single barline
@@ -404,30 +414,34 @@ class Translate(InstructionGroup):
     def __init__(self):
         super(Translate, self).__init__()
         self.anim_group = AnimGroup()
-        self.obj_anims = []
+        self.objs = []
         self.obj_index = 0
         self.add(self.anim_group)
 
     def add_obj(self, obj, second):
         self.anim_group.add(obj)
-        y_anim = KFAnim((second, Window.height), (second + num_seconds / (Window.height - bar_y) * Window.height, 0))
-        self.obj_anims.append((obj, y_anim))
+        # y_anim = KFAnim((second, Window.height), (second + num_seconds / (Window.height - bar_y) * Window.height, 0))
+        self.objs.append(obj)
 
     def on_end_game(self):  # reset
-        self.obj_anims = []
+        self.objs = []
         self.anim_group.clear()
         self.obj_index = 0
 
     def on_update(self, second):
         new_obj_index = self.obj_index
-        for i in range(self.obj_index, len(self.obj_anims)):
-            obj, anim = self.obj_anims[i]
-            new = anim.eval(second)
+        for i in range(self.obj_index, len(self.objs)):
+            obj = self.objs[i]
+            # new = anim.eval(second)
             # obj.set_y(y)
-            if type(object) == 'GemDisplay':
-                if new[1] == 0:
-                    new_obj_index = i
-                    self.anim_group.remove(obj)
+            active = obj.set_second(second)
+            if not active:
+                new_obj_index = i
+                self.anim_group.remove(obj)
+            # if type(object) == 'GemDisplay':
+            #     if new[1] == 0:
+            #         new_obj_index = i
+            #         self.anim_group.remove(obj)
         self.obj_index = new_obj_index
         self.anim_group.on_update()
 
@@ -494,6 +508,7 @@ class BeatMatchDisplay(InstructionGroup):
         if self.gem_index < len(self.gem_data):
             gem_time, gem_lane = self.gem_data[self.gem_index]
             if gem_time - num_seconds < second:
+                # print("release")
                 directions = ['up_left', 'left', 'right', 'up_right']
                 direction = random.choice(directions)
                 gem = GemDisplay(second, direction)
@@ -503,7 +518,7 @@ class BeatMatchDisplay(InstructionGroup):
         if self.barline_index < len(self.barline_times):
             barline_time = self.barline_times[self.barline_index]
             if barline_time - num_seconds < second:
-                self.trans.add_obj(BarlineDisplay(), second)
+                # self.trans.add_obj(BarlineDisplay(), second)
                 self.barline_index += 1
         else:  # End game when no more barlines
             self.end_game_callback()
