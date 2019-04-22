@@ -222,14 +222,22 @@ gem_r = 30
 class GemDisplay(InstructionGroup):
     def __init__(self, pos, color):
         super(GemDisplay, self).__init__()
-        self.x = pos[0]
+        # self.x = pos[0]
         self.orig_a = 0.5
 
         self.color = Color(color[0], color[1], color[2], self.orig_a)
         self.add(self.color)
 
-        self.circle = CEllipse(cpos = pos, size = (2*gem_r, 2*gem_r), segments = 40)
-        self.add(self.circle)
+        directions = ['up_left', 'left', 'right', 'up_right']
+        self.direction = random.choice(directions)
+
+        if self.direction == 'up_left' or self.direction == 'up_right':
+            pts = [Window.width/2, Window.height/2, Window.width/2, Window.height/2]
+        else:
+            pts = [Window.width/2-50, Window.height/2, Window.width/2+50, Window.height/2]
+
+        self.line = Line(points=pts, width=5)
+        self.add(self.line)
 
         self.time = 0
         self.hit = False
@@ -249,35 +257,43 @@ class GemDisplay(InstructionGroup):
 
     def set_y(self, y):
         if not self.hit:
-            self.circle.cpos = (self.x, y)
+            x1, y1, x2, y2 = self.line.points
+            if self.direction == 'left':
+                self.line.points = [x1-10, y1-10, x2-7, y2-10]
+            elif self.direction == 'right':
+                self.line.points = [x1+7, y1-10, x2+10, y2-10]
+            elif self.direction == 'up_left':
+                self.line.points = [x1-10, y1-3, x2-10, y2+2]
+            elif self.direction == 'up_right':
+                self.line.points = [x1+10, y1-3, x2+10, y2+2]
 
     # useful if gem is to animate
     def on_update(self, dt):
         if self.hit:
             size = self.size_anim.eval(self.time)
-            self.circle.set_csize((size, size))
+            # self.circle.set_csize((size, size))
             self.time += dt
             return self.size_anim.is_active(self.time)
         return True
 
 
 # display for a single barline
-# class BarlineDisplay(InstructionGroup):
-#     def __init__(self):
-#         super(BarlineDisplay, self).__init__()
-#         color = (192/255, 192/255, 192/255, 0.5)
-#         self.color = Color(*color)
-#         self.add(self.color)
-#
-#         line_pts = [0, Window.height, Window.width, Window.height]
-#         self.line = Line(points=line_pts, width = 1)
-#         self.add(self.line)
-#
-#     def set_y(self, y):
-#         self.line.points = [0, y, Window.width, y]
-#
-#     def on_update(self, dt):
-#         return True
+class BarlineDisplay(InstructionGroup):
+    def __init__(self):
+        super(BarlineDisplay, self).__init__()
+        color = (192/255, 192/255, 192/255, 0.5)
+        self.color = Color(*color)
+        self.add(self.color)
+
+        line_pts = [0, Window.height, Window.width, Window.height]
+        self.line = Line(points=line_pts, width = 1)
+        # self.add(self.line)
+
+    def set_y(self, y):
+        self.line.points = [0, y, Window.width, y]
+
+    def on_update(self, dt):
+        return True
 
 
 # Displays one button on the nowbar
@@ -394,8 +410,8 @@ class BeatMatchDisplay(InstructionGroup):
         line_pts = [0, bar_y, Window.width, bar_y]
         self.now_bar = Line(points=line_pts, width=5)
 
-        self.add(Color(*self.now_bar_color))
-        self.add(self.now_bar)
+        # self.add(Color(*self.now_bar_color))
+        # self.add(self.now_bar)
 
         x_s = [ Window.width / 5 * i + Window.width / 10 for i in range(5) ]
         # pastels red, orange, yellow, green, blue
@@ -403,8 +419,8 @@ class BeatMatchDisplay(InstructionGroup):
         self.colors = [[rgb/255 for rgb in rgb_color] for rgb_color in rgb_colors]
         self.buttons = [ ButtonDisplay(i, (x_s[i], bar_y), self.colors[i]) for i in range(len(x_s)) ]
 
-        for button in self.buttons:
-            self.add(button)
+        # for button in self.buttons:
+        #     self.add(button)
 
         self.gem_data = gem_data
         self.gem_index = 0
