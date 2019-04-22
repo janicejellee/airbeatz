@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>21M.385 Assignment 7</title>
+    <link rel="stylesheet" href="style.css">  
+    <meta charset="UTF-8">
+</head>
+
+<body>
+
+<h1>Assignment 7: Guitar Hero</h1>
+<hr>
+
+
+<h2>Overview</h2>
+
+<p>In this assignment, you will make a simplified Guitar Hero game, focusing on the core game mechanic (without the background graphics / characters, etc...). The main simplification is that we will use the computer keyboard as input device instead of a plastic guitar. Playing a note is therefore simply a matter of pressing the right keyboard key at the right time, as opposed to holding down the correct fret button(s) and strumming at the right time.</p>
+
+<p>Since this assignment is fairly involved, you are advised to start early.</p>
+
+
+<h2>Specification</h2>
+
+<img src="ref7/diagram.png">
+
+<p>Hit a key (‘p’) to toggle the song's play/pause state – this will start/pause both the background audio and the guitar-solo audio.</p>
+
+<h3>Visual Display</h3>
+
+<p>As the song plays, <i>Gems</i> (visual display of notes which you will author to correspond to some notes of the guitar solo) will start "falling down" from the top of the screen and approach the <i>NowBar</i>, located towards the bottom of the screen. Each Gem belongs to one of 5 <i>Lanes</i>. There are also 5 <i>Buttons</i> (visual indicators), attached to the NowBar. When a Gem reaches the NowBar, it will intersect with the corresponding Button of the Lane.</p>
+<p>In addition to Gems, <i>BarLines</i> also "fall down" from the top of the screen. Each BarLine represents the beginning of a measure / bar in the music.</p>
+<p>A <i>Score Display</i> in the top corner shows the player’s score.</p>
+
+
+<h3>Player Actions</h3>
+
+<p>5 keyboard keys are mapped to activate the five Buttons.</p>
+<p>The player attempts to "hit" the Gems by pressing the keyboard key associated with the Lane of a Gem when the Gem intersects the NowBar. There are three possible outcomes:</p>
+
+<ul>
+    <li><i>Hit</i>: The Gem was successfully hit. More specifically, a key was pressed when a Gem was within a time window centered on the NowBar and the key’s Lane matches the Gem’s Lane. The window is called the <i>Slop Window</i> and is +/- 100ms (i.e., a total of 200ms in width)</li>
+    <li><i>Miss</i>: There are two miss conditions</li>
+    <ul>
+        <li><i>Temporal Miss</i>: A key was pressed, but no Gem in any lane was within the Slop Window.</li>
+        <li><i>Lane Miss</i>: A key was pressed with a Gem inside the Slop Window, but in the wrong Lane. Any Gem that is Lane Missed is marked as unhittable.</li>
+    </ul>
+    <li><i>Pass</i>: A gem passed a point in time (after passing the NowBar) where it can no longer be hit (i.e., it is past the Slop Window).</li>
+</ul>
+
+
+<h3>Game Reactions</h3>
+
+<p>A well-designed game has direct visual and auditory feedback to inform the player about what’s going on and how they are doing. The reactions for GH are:</p>
+
+<p><b>Button Press:</b> When a key is pressed and released, the associated Button’s visual display changes accordingly.</p>
+<p><b>Hit:</b> The Gem shows that it was hit (for example, an explosion, flair, or some other exciting display). The Gem should then disappear or otherwise stop flowing down the screen to indicate it is no longer in play. The solo audio track unmutes. Points are earned.</p>
+<p><b>Pass:</b> The Gem changes visual state to show that it can no longer be hit. The solo audio track mutes.</p>
+<p><b>Temporal Miss:</b> A miss sound plays to indicate a missed note. The solo audio track mutes.</p>
+<p><b>Lane Miss:</b> A miss sound plays to indicate a missed note. The Gem changes visual state to show that it can no longer by hit. The solo audio track mutes.</p>
+
+
+<h2>Part 0: Choose a Song</h2>
+
+I’ve put up a few songs that we used in the original Guitar Hero game. These are multitrack songs, where the main guitar part is split from the rest of the background part so that each song consists of two stereo audio files. Pick a song.
+
+
+<h2>Part 1: Annotate the Song [10 pts]</h2>
+
+<p>Use Sonic Visualizer to annotate the gem locations in the solo part of the song. This is similar to what you did in Assignment 2, but you will be creating a <i>Time Instants Layer</i>. Each annotation is a time value and a text label.
+</p>
+
+<p>Hints:</p>
+
+<ul>
+    <li>When the song plays in Sonic Visualizer, hit <code>;</code> (semicolon) to insert a new annotation.</li>
+    <li>When you play back the song, you will hear a click at each annotation.</li>
+    <li>Use the Edit tool to adjust these annotation locations so that they line up precisely with the guitar notes.</li>
+    <li>To change the text label, hit <code>E</code> to bring up the annotations window.</li>
+</ul>
+
+<p>Use the annotation labels to specify the Lane of each gem. Use whatever format or syntax you want.</p>
+
+<p>Authoring the Gem data is a bit of an art form. The Gem pattern should be musical and follow the contours of the solo guitar line so it "feels right" to play it. You can choose how difficult you want the Gem pattern to be. You do not need to have a Gem match every note of the guitar solo. In the easy levels of Guitar Hero/Rock Band, Harmonix authored far fewer gems than guitar notes. Only the most difficult level had a (mostly) 1-1 correspondence between Gems and guitar notes.</p>
+
+<p>Export the gems data file with "Export Annotation Layer".</p>
+
+<p>As you did in Assignment 2, write code that parses this text file and store the data in the class <code>SongData</code>. You can do a rough initial pass to validate your code. Then in Part 3, you can refine your Gem authoring so it really feels right.</p>
+
+<p>Use the same process to create <code>BarLine</code> data (i.e., an annotation on each downbeat). You have the option of using the same annotation file (so it will have both bar data gem data), or two different files. In fact, it might be easier to lay down bar line data using the backing track.</p>
+
+
+<h2>Part 2: Basic Graphics and Audio [20 pts]</h2>
+
+Create the graphical and audio elements of the game:
+<ul>  
+    <li><code>GemDisplay</code>: draws a single gem</li>
+    
+    <li><code>ButtonDisplay</code>: draws a single button</li>
+    
+    <li><code>BeatMatchDisplay</code>: draws Gems, BarLines, NowBar, and Buttons; animates the Gems flowing down the screen (one option is to create a Translate() object and scroll Gems and Barlines by animating trans.y).</li>
+    
+    <li><code>AudioControl</code>: plays both background and solo audio files.</li>
+</ul>
+
+<p>Your system will need to know the current time of the song very precisely. One option is to use the <code>Clock</code> object from unit4. However, this could be problematic since the the system clock may drift from the Audio streaming system. A more robust way of keeping track of time is to rely on <code>WaveGenerator</code>. You can inspect the number of frames that have been consumed and convert that value into units of seconds.</p>
+
+<p>Instantiate the <code>BeatMatchDisplay</code> and the <code>AudioControl</code>. The Gems and BarLines should flow down the screen towards the NowBar as the song plays.</p>
+
+<p>At the end of this part, nothing is interactive. Gems and BarLines simply flow down as the song plays (and they should pause if you pause the song).</p>
+
+<code></code>
+<h2>Part 3: Interactive Elements and Game Logic [20 pts]</h2>
+
+<p>In this part, you will finish the game by adding all the interactive elements and audio/graphical game reactions.</p>
+
+<ul>
+    <li><code>GemDisplay</code>: implement functions to change the Gem’s graphical look as needed: <code>on_hit</code>, <code>on_pass</code>, and <code>on_update</code> (to help with hit animation).</li>
+    
+    <li><code>ButtonDisplay</code>: implement <code>on_down</code>, and <code>on_up</code>, to change the graphical look when the user presses a key.</li>
+    
+    <li><code>Player</code>: Create the game logic that implements the interactive behavior described in the Spec. <code>Player</code> receives button up/down events from <code>MainWidget</code>. It figures out what to do and calls functions on <code>BeatMatchDisplay</code> and <code>AudioControl</code> to make the appropriate reactions happen. It also keeps track of score.</li>
+    
+    <li><code>BeatMatchDisplay</code>: implement the functions called by Player that affect visual display of Gems and Buttons.</li>
+    
+    <li><code>AudioControl</code>: implement mute / unmute for the solo tracks, and play the miss-sound-effect with a <code>WaveGenerator</code>.</li>
+    
+    <li><code>Score</code>: Show the score somewhere on screen.</li><code></code>
+</ul>
+
+<p>Lastly, refine your Gem authoring so that it feels right and fun to play. If you are short on time, you need to not author gems for the entire song, but you should do at least the first minute. Of course, the more gems your author, the higher your score will be =)</p>
+
+Though there is no explicit creative part in the assignment, you will earn more points based on the quality of your graphics and any additional game elements you feel inspired to add. For example, you can consider secondary game mechanics like a streak system, or multiple gems per time (chords), or a powerup system.
+
+
+<h2>Finally...</h2>
+<p>Provide a brief video of you playing your game and a README that explains how things work, especially if you have added additional elements to this pset. Please have good comments in your code. When submitting your solution, submit a zip file that has all the necessary files. Upload your zip file to LMOD / Homework.</p>
+
