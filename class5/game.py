@@ -11,6 +11,7 @@ from kivy.graphics.instructions import InstructionGroup
 from kivy.graphics import Color, Ellipse, Line, Rectangle
 from kivy.graphics import PushMatrix, PopMatrix, Translate, Scale, Rotate
 from kivy.clock import Clock as kivyClock
+from kivy.core.text import Label as CoreLabel
 
 import random
 import numpy as np
@@ -192,10 +193,48 @@ class SongData(object):
             if time > num_seconds:
                 times.append(time)
         return times
-    # TODO: figure out how gem and barline data should be accessed...
 
-bar_y = 80
-gem_r = 30
+
+# Perfect, Good, Miss, etc
+class AccuracyDisplay(InstructionGroup):
+    def __init__(self, accuracy, pos, second):
+        super(AccuracyDisplay, self).__init__()
+        self.accuracy = accuracy
+        font_size = 25
+        self.pos = pos 
+        self.size = (100, 25)
+        self.box = Rectangle(pos=pos, size=self.size)
+        box_color = Color(0, 0, 0, 0)
+        self.add(box_color)
+        self.add(self.box)
+        
+        label = CoreLabel(text=self.accuracy, font_size=font_size)
+        # the label is usually not drawn until needed, so force it to draw
+        label.refresh()
+        # now access the texture of the label and use it 
+        texture = label.texture
+        if accuracy == "Perfect":
+            self.color = Color(0, 1, 0)
+        elif accuracy == "Good":
+            self.color = Color(1, 127/255, 80/255)
+        elif accuracy == "Miss":
+            self.color = Color(1, 0, 0)
+        self.add(self.color)
+        text_pos = list(self.pos[i] + (self.size[i] - texture.size[i]) / 2 for i in range(2))
+        self.label = Rectangle(size=texture.size, pos=text_pos, texture=texture)
+        self.add(self.label)
+        max_time = 2
+        self.alpha_anim = KFAnim((second, 1), (second + max_time, 0)) # color disappears
+        self.set_second(second)
+
+    def set_second(self, second):
+        alpha = self.alpha_anim.eval(second)
+        self.color.a = alpha
+        return self.alpha_anim.is_active(second)
+
+    def on_update(self, dt):
+        return True
+
 
 # display for a single gem at a position with a color (if desired)
 class GemDisplay(InstructionGroup):
@@ -268,6 +307,11 @@ class GemDisplay(InstructionGroup):
     # change to display a passed gem
     def on_pass(self):
         self.color.a = 0.2  # decrease color alpha
+
+    # return midpoint
+    def get_pos(self):
+        x1, y1, x2, y2 = self.line.points
+        return (x1+x2)/2, (y1+y2)/2
 
     def set_second(self, second):
         if self.pos_anim_0:
@@ -383,34 +427,26 @@ class Translate(InstructionGroup):
         super(Translate, self).__init__()
         self.anim_group = AnimGroup()
         self.objs = []
-        self.obj_index = 0
+        self.inactive_indices = []
         self.add(self.anim_group)
 
-    def add_obj(self, obj, second):
+    def add_obj(self, obj):
         self.anim_group.add(obj)
-        # y_anim = KFAnim((second, Window.height), (second + num_seconds / (Window.height - bar_y) * Window.height, 0))
         self.objs.append(obj)
 
     def on_end_game(self):  # reset
         self.objs = []
         self.anim_group.clear()
-        self.obj_index = 0
+        self.inactive_indices = []
 
     def on_update(self, second):
-        new_obj_index = self.obj_index
-        for i in range(self.obj_index, len(self.objs)):
-            obj = self.objs[i]
-            # new = anim.eval(second)
-            # obj.set_y(y)
-            active = obj.set_second(second)
-            if not active:
-                new_obj_index = i
-                self.anim_group.remove(obj)
-            # if type(object) == 'GemDisplay':
-            #     if new[1] == 0:
-            #         new_obj_index = i
-            #         self.anim_group.remove(obj)
-        self.obj_index = new_obj_index
+        for i in range(len(self.objs)):
+            if i not in self.inactive_indices:
+                obj = self.objs[i]
+                active = obj.set_second(second)
+                if not active:
+                    self.inactive_indices.append(i)
+                    self.anim_group.remove(obj)
         self.anim_group.on_update()
 
 
@@ -442,14 +478,16 @@ class BeatMatchDisplay(InstructionGroup):
         }
 
     # called by Player. Causes the right thing to happen
-    def gem_hit(self, gem_idx):
+    def gem_hit(self, gem_idx, accuracy, second):
         if gem_idx < len(self.gems):
             self.gems[gem_idx].on_hit()
+            self.trans.add_obj(AccuracyDisplay(accuracy, self.gems[gem_idx].get_pos(), second))
 
     # called by Player. Causes the right thing to happen
-    def gem_pass(self, gem_idx):
+    def gem_pass(self, gem_idx, second):
         if gem_idx < len(self.gems):
             self.gems[gem_idx].on_pass()
+            self.trans.add_obj(AccuracyDisplay("Miss", self.gems[gem_idx].get_pos(), second))
 
     # called by Player. Causes the right thing to happen
     def on_tap(self, direction, hit, hand):
@@ -481,7 +519,7 @@ class BeatMatchDisplay(InstructionGroup):
                 # direction = random.choice(directions)
                 gem = GemDisplay(second, gem_direction)
                 self.gems.append(gem)
-                self.trans.add_obj(gem, second)
+                self.trans.add_obj(gem)
                 self.gem_index += 1
         if self.barline_index < len(self.barline_times):
             barline_time = self.barline_times[self.barline_index]
@@ -503,7 +541,8 @@ class Player(object):
         self.display = display
         self.audio_ctrl = audio_ctrl
         self.pass_gem_index = -1  # most recent gem that went past the slop window
-        self.slop_window = 0.1 # +-100 ms
+        self.good_slop_window = 0.15 # +-150 ms
+        self.perfect_slop_window = 0.08 # +-80 ms
 
         self.tap_gestures = [TapGesture(side_bar, self.on_tap, self.on_release_tap) for direction, side_bar in self.display.side_bars.items()]
 
@@ -512,13 +551,18 @@ class Player(object):
         hit = False
         gem_index = self.pass_gem_index + 1
         new_pass_gem_index = self.pass_gem_index
-        while gem_index < len(self.gem_data) and self.gem_data[gem_index][0] <= second + self.slop_window:
+        while gem_index < len(self.gem_data) and self.gem_data[gem_index][0] <= second + self.good_slop_window:
             gem_label = self.gem_data[gem_index][1]
             gem_direction = direction_number_map[int(gem_label)]
             if gem_direction == side_bar.direction:  # Hit
                 hit = True
-                self.display.gem_hit(gem_index)
-                self.score += 1
+                gem_second = self.gem_data[gem_index][0]
+                if abs(gem_second - second) <= self.perfect_slop_window:
+                    self.display.gem_hit(gem_index, "Perfect", second)
+                    self.score += 1
+                elif abs(gem_second - second) <= self.good_slop_window:
+                    self.display.gem_hit(gem_index, "Good", second)
+                    self.score += 0.5
             # else: # Else, it's a Lane miss
             #     self.display.gem_pass(gem_index)  # gem can no longer by hit
             new_pass_gem_index = gem_index
@@ -540,8 +584,8 @@ class Player(object):
     def on_update(self):
         second = self.audio_ctrl.get_frame() / Audio.sample_rate
         gem_index = self.pass_gem_index + 1
-        while gem_index < len(self.gem_data) and self.gem_data[gem_index][0] <= second - self.slop_window:
-            self.display.gem_pass(gem_index)
+        while gem_index < len(self.gem_data) and self.gem_data[gem_index][0] <= second - self.good_slop_window:
+            self.display.gem_pass(gem_index, second)
             # self.audio_ctrl.set_mute(True)
             gem_index += 1
         self.pass_gem_index = gem_index - 1
