@@ -316,7 +316,7 @@ class TapGesture(object):
         self.tap_callback = tap_callback
         self.release_tap_callback = release_tap_callback
 
-        self.x_threshold = 10 # diff in x
+        self.x_threshold = 40 # diff in x
         self.y_threshold = 20  # diff in y
 
     def set_hand_pos(self, pos):
@@ -475,9 +475,9 @@ class Player(object):
             gem_index += 1
         self.pass_gem_index = new_pass_gem_index
         self.display.on_button_down(lane, hit)
-        self.audio_ctrl.set_mute(not hit)
-        if not hit:  # Temporal miss or Lane miss
-            self.audio_ctrl.play_sfx()
+        # self.audio_ctrl.set_mute(not hit)
+        # if not hit:  # Temporal miss or Lane miss
+        #     self.audio_ctrl.play_sfx()
 
     # called by MainWidget
     def on_button_up(self, lane):
@@ -501,9 +501,9 @@ class Player(object):
             gem_index += 1
         self.pass_gem_index = new_pass_gem_index
         self.display.on_button_down(button.lane, hit)
-        self.audio_ctrl.set_mute(not hit)
-        if not hit:  # Temporal miss or Lane miss
-            self.audio_ctrl.play_sfx()
+        # self.audio_ctrl.set_mute(not hit)
+        # if not hit:  # Temporal miss or Lane miss
+        #     self.audio_ctrl.play_sfx()
 
     def on_release_tap(self, button):
         self.display.on_button_up(button.lane)
@@ -518,7 +518,7 @@ class Player(object):
         gem_index = self.pass_gem_index + 1
         while gem_index < len(self.gem_data) and self.gem_data[gem_index][0] <= second - self.slop_window:
             self.display.gem_pass(gem_index)
-            self.audio_ctrl.set_mute(True)
+            # self.audio_ctrl.set_mute(True)
             gem_index += 1
         self.pass_gem_index = gem_index - 1
 
