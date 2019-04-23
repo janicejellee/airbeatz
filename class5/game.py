@@ -395,6 +395,8 @@ class SideBarDisplay(InstructionGroup):
             self.miss = False
 
     def set_tapped(self, tapped):
+        # if not tapped:
+        #     print(self.direction)
         if tapped:
             self.color.a = 1
         else:
@@ -417,8 +419,8 @@ class TapGesture(object):
         self.x_range = sorted([x1, x2])
         self.y_range = sorted([y1, y2])
 
-        self.x_threshold = 50 # room for error in x
-        self.y_threshold = 50  # room for error in y
+        self.x_threshold = 30 # room for error in x
+        self.y_threshold = 30  # room for error in y
 
     def set_hand_pos(self, pos, hand):
         # check if x and y is between allowed range & room for error
@@ -506,7 +508,8 @@ class BeatMatchDisplay(InstructionGroup):
 
     # called by Player. Causes the right thing to happen
     def on_release_tap(self, direction, hand):
-        self.side_bars_tapped[hand] = None
+        if self.side_bars_tapped[hand] == direction:
+            self.side_bars_tapped[hand] = None
         if self.side_bars_tapped["right"] != direction and self.side_bars_tapped["left"] != direction:
             self.side_bars[direction].on_release_tap()
             self.side_bars[direction].set_tapped(False)
@@ -568,10 +571,10 @@ class Player(object):
                 gem_second = self.gem_data[gem_index][0]
                 if abs(gem_second - second) <= self.perfect_slop_window:
                     self.display.gem_hit(gem_index, "Perfect", second)
-                    self.score += 1
+                    self.score += 10
                 elif abs(gem_second - second) <= self.good_slop_window:
                     self.display.gem_hit(gem_index, "Good", second)
-                    self.score += 0.5
+                    self.score += 5
             # else: # Else, it's a Lane miss
             #     self.display.gem_pass(gem_index)  # gem can no longer by hit
             new_pass_gem_index = gem_index
