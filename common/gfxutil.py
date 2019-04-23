@@ -117,9 +117,9 @@ class Cursor3D(InstructionGroup):
         self.min_sz = size_range[0]
         self.max_sz = size_range[1]
 
-        if border:
-            self.add(Color(1, 0, 0))
-            self.add(Line(rectangle= area_pos + area_size))
+        # if border:
+        #     self.add(Color(1, 0, 0))
+        #     self.add(Line(rectangle= area_pos + area_size))
 
         self.color = Color(*rgb)
         self.add(self.color)
@@ -152,7 +152,7 @@ class Cursor3D(InstructionGroup):
 # convert the point pt to a unit range point spanning 0-1 in x,y, and z
 # _range should be the array ((x_min, x_max), (y_min, y_max), (z_min, z_max))
 # this is the expect bounds of the input point pt.
-# if pt == 0, 
+# if pt == 0,
 def scale_point(pt, _range):
     range_min = np.array((_range[0][0], _range[1][0], _range[2][0]))
     range_max = np.array((_range[0][1], _range[1][1], _range[2][1]))
