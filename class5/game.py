@@ -38,12 +38,12 @@ class MainWidget(BaseWidget) :
         super(MainWidget, self).__init__()
 
         self.song_data = SongData()
-        gem_data = self.song_data.read_gem_data('../data/gem_data.txt')
+        gem_data = self.song_data.read_gem_data('../data/gem_data_thank_u_next_1_min.txt')
         barline_times = self.song_data.read_barline_data('../data/barline_data.txt')
         self.display = BeatMatchDisplay(gem_data, barline_times, self.on_end_game)
         self.canvas.add(self.display)
 
-        self.audio_ctrl = AudioController('../data/SmokeOnTheWater')
+        self.audio_ctrl = AudioController('../data/thank_u_next_1_min.wav')
         self.audio_ctrl.toggle()
         self.audio = self.audio_ctrl.audio
 
@@ -114,10 +114,10 @@ class MainWidget(BaseWidget) :
 
 
 # creates the Audio driver
-# creates a song and loads it with solo and bg audio tracks
+# creates a song and loads it 
 # creates snippets for audio sound fx
 class AudioController(object):
-    def __init__(self, song_path):  # song_path is without the "_bg.wav", "_solo.wav"
+    def __init__(self, song_path):
         super(AudioController, self).__init__()
         self.audio = Audio(2)
         self.mixer = Mixer()
@@ -125,40 +125,27 @@ class AudioController(object):
         self.audio.set_generator(self.mixer)
         self.song_path = song_path
 
-        self.wave_file_bg = WaveFile(song_path + "_bg.wav")
-        self.wave_gen_bg = WaveGenerator(self.wave_file_bg)
-        self.mixer.add(self.wave_gen_bg)
-
-        self.wave_file_solo = WaveFile(song_path +  "_solo.wav")
-        self.wave_gen_solo = WaveGenerator(self.wave_file_solo)
-        self.mixer.add(self.wave_gen_solo)
+        self.wave_file = WaveFile(song_path)
+        self.wave_gen = WaveGenerator(self.wave_file)
+        self.mixer.add(self.wave_gen)
 
     # start / stop the song
     def toggle(self):
-        self.wave_gen_bg.play_toggle()
-        self.wave_gen_solo.play_toggle()
+        self.wave_gen.play_toggle()
 
-    # mute / unmute the solo track
-    def set_mute(self, mute):
-        if mute:
-            self.wave_gen_solo.set_gain(0)
-        else:
-            self.wave_gen_solo.set_gain(1)
-
-    # play a sound-fx (miss sound)
-    def play_sfx(self):
-        buffers = make_wave_buffers("../data/mario.wav", "../data/miss_region.txt")
-        miss_buffer = buffers['miss']
-        gen = WaveGenerator(miss_buffer)
-        self.mixer.add(gen)
+    # # play a sound-fx (miss sound)
+    # def play_sfx(self):
+    #     buffers = make_wave_buffers("../data/mario.wav", "../data/miss_region.txt")
+    #     miss_buffer = buffers['miss']
+    #     gen = WaveGenerator(miss_buffer)
+    #     self.mixer.add(gen)
 
     def get_frame(self):
-        return self.wave_gen_bg.frame
+        return self.wave_gen.frame
 
     def on_end_game(self):  # reset
-        self.wave_gen_bg.reset()
-        self.wave_gen_solo.reset()
-        self.wave_gen_solo.set_gain(1)
+        self.wave_gen.reset()
+        self.wave_gen.set_gain(1)
 
     # needed to update audio
     def on_update(self):
@@ -618,7 +605,6 @@ class Player(object):
             gem_index += 1
         self.pass_gem_index = new_pass_gem_index
         self.display.on_tap(side_bar.direction, hit, hand)
-        # self.audio_ctrl.set_mute(not hit)
         # if not hit:  # Temporal miss or Lane miss
         #     self.audio_ctrl.play_sfx()
 
@@ -635,7 +621,6 @@ class Player(object):
         gem_index = self.pass_gem_index + 1
         while gem_index < len(self.gem_data) and self.gem_data[gem_index][0] <= second - self.good_slop_window:
             self.display.gem_pass(gem_index, second)
-            # self.audio_ctrl.set_mute(True)
             gem_index += 1
         self.pass_gem_index = gem_index - 1
 
