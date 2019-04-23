@@ -39,7 +39,7 @@ class MainWidget(BaseWidget) :
         super(MainWidget, self).__init__()
 
         self.song_data = SongData()
-        gem_data = self.song_data.read_gem_data('../data/gem_data_thank_u_next_1_min.txt')
+        self.gem_data = self.song_data.read_gem_data('../data/gem_data_thank_u_next_1_min.txt')
         barline_times = self.song_data.read_barline_data('../data/barline_data.txt')
         self.display = BeatMatchDisplay(self.gem_data, barline_times, self.on_end_game)
         self.canvas.add(self.display)
