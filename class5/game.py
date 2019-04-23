@@ -31,6 +31,7 @@ direction_number_map = {
     2: "right",
     3: "up_right"
 }  # labels are numbers 0 to 4 in gem_data.txt, which correspond to the directions
+center = (Window.width/2, Window.height/2)
 
 class MainWidget(BaseWidget) :
     def __init__(self):
@@ -327,6 +328,44 @@ class GemDisplay(InstructionGroup):
         return True
 
 
+# for 3D background
+class Star(InstructionGroup):
+    def __init__(self, second):
+        super(Star, self).__init__()
+        color = (1, 1, 1, 0.5)
+        self.color = Color(*color)
+        self.add(self.color)
+        self.circle = CEllipse(cpos = center, size = (0, 0), segments = 5)
+        self.add(self.circle)
+        floating_num_seconds = 7
+        self.side = random.choice(["top", "bottom", "left", "right"])
+        # TODO: randomize?
+        max_r = 5
+        self.r_anim = KFAnim((second, 0), (second + floating_num_seconds, max_r))
+        if self.side == "top":
+            self.pos_anim = KFAnim((second, center[0], center[1]), \
+                (second + floating_num_seconds, random.random() * Window.width, Window.height))
+        if self.side == "bottom":
+            self.pos_anim = KFAnim((second, center[0], center[1]), \
+                (second + floating_num_seconds, random.random() * Window.width, 0))
+        if self.side == "left":
+            self.pos_anim = KFAnim((second, center[0], center[1]), \
+                (second + floating_num_seconds, 0, random.random() * Window.height))
+        if self.side == "right":
+            self.pos_anim = KFAnim((second, center[0], center[1]), \
+                (second + floating_num_seconds, Window.width, random.random() * Window.height))
+
+    def set_second(self, second):
+        pos = self.pos_anim.eval(second)
+        self.circle.cpos = pos
+        r = self.r_anim.eval(second)
+        self.circle.size = (2 * r, 2 * r)
+        return self.pos_anim.is_active(second)
+
+    def on_update(self, dt):
+        return True
+
+
 # display for a single barline
 class BarlineDisplay(InstructionGroup):
     def __init__(self):
@@ -481,6 +520,7 @@ class BeatMatchDisplay(InstructionGroup):
             "right": None,
             "left": None
         }
+        self.star_seconds_counter = 0
 
     # called by Player. Causes the right thing to happen
     def gem_hit(self, gem_idx, accuracy, second):
@@ -517,6 +557,9 @@ class BeatMatchDisplay(InstructionGroup):
     # call every frame to make gems and barlines flow down the screen
     def on_update(self, frame):
         second = frame / Audio.sample_rate
+        if self.star_seconds_counter / 10 < second:
+            self.trans.add_obj(Star(second))
+            self.star_seconds_counter += 1
         if self.gem_index < len(self.gem_data):
             gem_time, gem_label = self.gem_data[self.gem_index]
             gem_direction = direction_number_map[int(gem_label)]
