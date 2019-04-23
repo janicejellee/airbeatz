@@ -20,7 +20,8 @@ import bisect
 from common.leaputil import *
 import Leap
 
-num_seconds = 3  # how long it takes for lines to move from center to bars
+NUM_GEMS = None
+NUM_SECONDS = 3  # how long it takes for lines to move from center to bars
 bottom_y = 100
 left_x = Window.width/2-300
 right_x = Window.width/2+300
@@ -37,16 +38,16 @@ class MainWidget(BaseWidget) :
         super(MainWidget, self).__init__()
 
         self.song_data = SongData()
-        gem_data = self.song_data.read_gem_data('../data/gem_data.txt')
+        self.gem_data = self.song_data.read_gem_data('../data/gem_data.txt')
         barline_times = self.song_data.read_barline_data('../data/barline_data.txt')
-        self.display = BeatMatchDisplay(gem_data, barline_times, self.on_end_game)
+        self.display = BeatMatchDisplay(self.gem_data, barline_times, self.on_end_game)
         self.canvas.add(self.display)
 
         self.audio_ctrl = AudioController('../data/SmokeOnTheWater')
         self.audio_ctrl.toggle()
         self.audio = self.audio_ctrl.audio
 
-        self.player = Player(gem_data, self.display, self.audio_ctrl)
+        self.player = Player(self.gem_data, self.display, self.audio_ctrl)
 
         self.label = topleft_label()
         self.add_widget(self.label)
@@ -71,10 +72,86 @@ class MainWidget(BaseWidget) :
         # play / pause toggle
         if keycode[1] == 'p':
             self.audio_ctrl.toggle()
+        elif keycode[1] == 'q':
+            self.on_end_game()
 
     def on_end_game(self):
         self.audio_ctrl.on_end_game()
         self.display.on_end_game()
+
+        print ("HAY!!!")
+
+        font_colors = {
+            'Normal': Color(217/255, 217/255, 217/255),
+            'Perfect': Color(0, 1, 0),
+            'Good': Color(1, 127/255, 80/255),
+            'Miss': Color(1, 0, 0)
+        }
+
+        text_height = 200
+
+        label = CoreLabel(text='Score', font_size=50)
+        label.refresh()
+        texture = label.texture
+        self.canvas.add(font_colors['Normal'])
+        text_pos = [100, Window.height-text_height]
+        rec_label = Rectangle(size=texture.size, pos=text_pos, texture=texture)
+        self.canvas.add(rec_label)
+
+        label = CoreLabel(text=str(self.player.score), font_size=50)
+        label.refresh()
+        texture = label.texture
+        text_pos = [300, Window.height-text_height]
+        rec_label = Rectangle(size=texture.size, pos=text_pos, texture=texture)
+        self.canvas.add(rec_label)
+
+        nums = {
+            'Perfect': self.player.num_perfects,
+            'Good': self.player.num_goods,
+            'Miss': self.player.num_misses
+        }
+
+        for acc in ['Perfect', 'Good', 'Miss']:
+            color = font_colors[acc]
+            label = CoreLabel(text=acc, font_size=30)
+            label.refresh()
+            texture = label.texture
+            self.canvas.add(color)
+            text_height += 60
+            text_pos = [100, Window.height-text_height]
+            rec_label = Rectangle(size=texture.size, pos=text_pos, texture=texture)
+            self.canvas.add(rec_label)
+
+
+            label = CoreLabel(text=str(nums[acc]), font_size=30)
+            label.refresh()
+            texture = label.texture
+            text_pos = [300, Window.height-text_height]
+            rec_label = Rectangle(size=texture.size, pos=text_pos, texture=texture)
+            self.canvas.add(rec_label)
+
+        total_poss_score = len(self.gem_data) * 10
+        percent = self.player.score / total_poss_score
+
+        if percent > 0.9:
+            grade = 'A'
+        elif percent > 0.8:
+            grade = 'B'
+        elif percent > 0.7:
+            grade = 'C'
+        elif percent > 0.6:
+            grade = 'D'
+        else:
+            grade = 'F'
+
+        label = CoreLabel(text=grade, font_size=300)
+        label.refresh()
+        texture = label.texture
+        text_pos = [475, Window.height-425]
+        rec_label = Rectangle(size=texture.size, pos=text_pos, texture=texture)
+        self.canvas.add(font_colors['Normal'])
+        self.canvas.add(rec_label)
+
         self.player.on_end_game()
 
     # set the hand position as a 3D vector ranging from [0,0,0] to [1,1,1]
@@ -178,9 +255,10 @@ class SongData(object):
         for line in lines:
             tokens = line.strip().split('\t')
             time = float(tokens[0])
-            if time > num_seconds:
+            if time > NUM_SECONDS:
                 direction = int(tokens[1])
                 gems.append((time, direction))
+        NUM_GEMS = len(gems)
         return gems
 
     def read_barline_data(self, filepath):
@@ -190,7 +268,7 @@ class SongData(object):
         for line in lines:
             tokens = line.strip().split('\t')
             time = float(tokens[0])
-            if time > num_seconds:
+            if time > NUM_SECONDS:
                 times.append(time)
         return times
 
@@ -275,22 +353,22 @@ class GemDisplay(InstructionGroup):
 
         # animations
         self.time = second
-        num_seconds_to_screen_edge_bottom = num_seconds / (Window.height/2 - bottom_y) * Window.height/2
-        num_seconds_to_screen_edge_sides = num_seconds / (Window.width/2 - left_x) * Window.width/2
+        NUM_SECONDS_to_screen_edge_bottom = NUM_SECONDS / (Window.height/2 - bottom_y) * Window.height/2
+        NUM_SECONDS_to_screen_edge_sides = NUM_SECONDS / (Window.width/2 - left_x) * Window.width/2
         if self.direction == 'left':
-            self.pos_anim_0 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_bottom, Window.width/2-400, 0))
-            self.pos_anim_1 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_bottom, Window.width/2-100, 0))
+            self.pos_anim_0 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + NUM_SECONDS_to_screen_edge_bottom, Window.width/2-400, 0))
+            self.pos_anim_1 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + NUM_SECONDS_to_screen_edge_bottom, Window.width/2-100, 0))
         elif self.direction == 'right':
-            self.pos_anim_0 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_bottom, Window.width/2+400, 0))
-            self.pos_anim_1 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_bottom, Window.width/2+100, 0))
+            self.pos_anim_0 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + NUM_SECONDS_to_screen_edge_bottom, Window.width/2+400, 0))
+            self.pos_anim_1 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + NUM_SECONDS_to_screen_edge_bottom, Window.width/2+100, 0))
         elif self.direction == 'up_left':
-            self.pos_anim_0 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_sides, 0, Window.height/2+100))
-            self.pos_anim_1 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_sides, 0, Window.height/2-150))
+            self.pos_anim_0 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + NUM_SECONDS_to_screen_edge_sides, 0, Window.height/2+100))
+            self.pos_anim_1 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + NUM_SECONDS_to_screen_edge_sides, 0, Window.height/2-150))
         elif self.direction == 'up_right':
-            self.pos_anim_0 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_sides, Window.width, Window.height/2+100))
-            self.pos_anim_1 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_sides, Window.width, Window.height/2-150))
+            self.pos_anim_0 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + NUM_SECONDS_to_screen_edge_sides, Window.width, Window.height/2+100))
+            self.pos_anim_1 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + NUM_SECONDS_to_screen_edge_sides, Window.width, Window.height/2-150))
 
-        self.width_anim = KFAnim((self.time, 1), (self.time + num_seconds_to_screen_edge_bottom, 10))
+        self.width_anim = KFAnim((self.time, 1), (self.time + NUM_SECONDS_to_screen_edge_bottom, 10))
 
         self.time = 0
         self.hit = False
@@ -526,7 +604,7 @@ class BeatMatchDisplay(InstructionGroup):
         if self.gem_index < len(self.gem_data):
             gem_time, gem_label = self.gem_data[self.gem_index]
             gem_direction = direction_number_map[int(gem_label)]
-            if gem_time - num_seconds < second:
+            if gem_time - NUM_SECONDS < second:
                 # print("release")
                 # direction = random.choice(directions)
                 gem = GemDisplay(second, gem_direction)
@@ -535,7 +613,7 @@ class BeatMatchDisplay(InstructionGroup):
                 self.gem_index += 1
         if self.barline_index < len(self.barline_times):
             barline_time = self.barline_times[self.barline_index]
-            if barline_time - num_seconds < second:
+            if barline_time - NUM_SECONDS < second:
                 # self.trans.add_obj(BarlineDisplay(), second)
                 self.barline_index += 1
         else:  # End game when no more barlines
@@ -556,6 +634,10 @@ class Player(object):
         self.good_slop_window = 0.15 # +-150 ms
         self.perfect_slop_window = 0.08 # +-80 ms
 
+        self.num_perfects = 0
+        self.num_goods = 0
+        self.num_misses = 0
+
         self.tap_gestures = [TapGesture(side_bar, self.on_tap, self.on_release_tap) for direction, side_bar in self.display.side_bars.items()]
 
     def on_tap(self, side_bar, hand):
@@ -572,9 +654,11 @@ class Player(object):
                 if abs(gem_second - second) <= self.perfect_slop_window:
                     self.display.gem_hit(gem_index, "Perfect", second)
                     self.score += 10
+                    self.num_perfects += 1
                 elif abs(gem_second - second) <= self.good_slop_window:
                     self.display.gem_hit(gem_index, "Good", second)
                     self.score += 5
+                    self.num_goods += 1
             # else: # Else, it's a Lane miss
             #     self.display.gem_pass(gem_index)  # gem can no longer by hit
             new_pass_gem_index = gem_index
@@ -598,6 +682,7 @@ class Player(object):
         gem_index = self.pass_gem_index + 1
         while gem_index < len(self.gem_data) and self.gem_data[gem_index][0] <= second - self.good_slop_window:
             self.display.gem_pass(gem_index, second)
+            self.num_misses += 1
             # self.audio_ctrl.set_mute(True)
             gem_index += 1
         self.pass_gem_index = gem_index - 1
