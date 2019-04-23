@@ -80,8 +80,6 @@ class MainWidget(BaseWidget) :
         self.audio_ctrl.on_end_game()
         self.display.on_end_game()
 
-        print ("HAY!!!")
-
         font_colors = {
             'Normal': Color(217/255, 217/255, 217/255),
             'Perfect': Color(0, 1, 0),
@@ -169,6 +167,9 @@ class MainWidget(BaseWidget) :
             tap_gesture.set_hand_pos(screen_pos, "left")
 
     def on_update(self):
+        song_ended = not self.audio_ctrl.on_update()
+        if song_ended:
+            self.on_end_game()
         leap_frame = self.leap.frame()
         pts = list(leap_two_palms(leap_frame))
         # pts.sort(key=lambda pt: pt[0])  # sort by increasing x (hand with smaller x is first)
@@ -184,7 +185,6 @@ class MainWidget(BaseWidget) :
 
         frame = self.audio_ctrl.get_frame()
         self.display.on_update(frame)
-        self.audio_ctrl.on_update()
         self.player.on_update()
         self.label.text = ''
         self.label.text += 'Score: %s\n' % (self.player.score)
@@ -226,7 +226,10 @@ class AudioController(object):
 
     # needed to update audio
     def on_update(self):
+        if self.wave_gen not in self.mixer.generators:
+            return False
         self.audio.on_update()
+        return True
 
 
 # holds data for gems and barlines.
@@ -489,7 +492,7 @@ class SideBarDisplay(InstructionGroup):
     def on_tap(self, hit):
         if hit:
             # self.color.a = 1
-            print("hit!")
+            # print("hit!")
         else:
             self.miss = True
 
