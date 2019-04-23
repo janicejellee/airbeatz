@@ -187,7 +187,8 @@ class MainWidget(BaseWidget) :
         self.display.on_update(frame)
         self.player.on_update()
         self.label.text = ''
-        self.label.text += 'Score: %s\n' % (self.player.score)
+        if not song_ended:
+            self.label.text += 'Score: %s\n' % (self.player.score)
 
 
 # creates the Audio driver
@@ -493,6 +494,7 @@ class SideBarDisplay(InstructionGroup):
         if hit:
             # self.color.a = 1
             # print("hit!")
+            pass
         else:
             self.miss = True
 
