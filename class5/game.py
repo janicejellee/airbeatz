@@ -32,18 +32,19 @@ direction_number_map = {
     2: "right",
     3: "up_right"
 }  # labels are numbers 0 to 4 in gem_data.txt, which correspond to the directions
+center = (Window.width/2, Window.height/2)
 
 class MainWidget(BaseWidget) :
     def __init__(self):
         super(MainWidget, self).__init__()
 
         self.song_data = SongData()
-        self.gem_data = self.song_data.read_gem_data('../data/gem_data.txt')
+        gem_data = self.song_data.read_gem_data('../data/gem_data_thank_u_next_1_min.txt')
         barline_times = self.song_data.read_barline_data('../data/barline_data.txt')
         self.display = BeatMatchDisplay(self.gem_data, barline_times, self.on_end_game)
         self.canvas.add(self.display)
 
-        self.audio_ctrl = AudioController('../data/SmokeOnTheWater')
+        self.audio_ctrl = AudioController('../data/thank_u_next_1_min.wav')
         self.audio_ctrl.toggle()
         self.audio = self.audio_ctrl.audio
 
@@ -190,10 +191,10 @@ class MainWidget(BaseWidget) :
 
 
 # creates the Audio driver
-# creates a song and loads it with solo and bg audio tracks
+# creates a song and loads it
 # creates snippets for audio sound fx
 class AudioController(object):
-    def __init__(self, song_path):  # song_path is without the "_bg.wav", "_solo.wav"
+    def __init__(self, song_path):
         super(AudioController, self).__init__()
         self.audio = Audio(2)
         self.mixer = Mixer()
@@ -201,40 +202,27 @@ class AudioController(object):
         self.audio.set_generator(self.mixer)
         self.song_path = song_path
 
-        self.wave_file_bg = WaveFile(song_path + "_bg.wav")
-        self.wave_gen_bg = WaveGenerator(self.wave_file_bg)
-        self.mixer.add(self.wave_gen_bg)
-
-        self.wave_file_solo = WaveFile(song_path +  "_solo.wav")
-        self.wave_gen_solo = WaveGenerator(self.wave_file_solo)
-        self.mixer.add(self.wave_gen_solo)
+        self.wave_file = WaveFile(song_path)
+        self.wave_gen = WaveGenerator(self.wave_file)
+        self.mixer.add(self.wave_gen)
 
     # start / stop the song
     def toggle(self):
-        self.wave_gen_bg.play_toggle()
-        self.wave_gen_solo.play_toggle()
+        self.wave_gen.play_toggle()
 
-    # mute / unmute the solo track
-    def set_mute(self, mute):
-        if mute:
-            self.wave_gen_solo.set_gain(0)
-        else:
-            self.wave_gen_solo.set_gain(1)
-
-    # play a sound-fx (miss sound)
-    def play_sfx(self):
-        buffers = make_wave_buffers("../data/mario.wav", "../data/miss_region.txt")
-        miss_buffer = buffers['miss']
-        gen = WaveGenerator(miss_buffer)
-        self.mixer.add(gen)
+    # # play a sound-fx (miss sound)
+    # def play_sfx(self):
+    #     buffers = make_wave_buffers("../data/mario.wav", "../data/miss_region.txt")
+    #     miss_buffer = buffers['miss']
+    #     gen = WaveGenerator(miss_buffer)
+    #     self.mixer.add(gen)
 
     def get_frame(self):
-        return self.wave_gen_bg.frame
+        return self.wave_gen.frame
 
     def on_end_game(self):  # reset
-        self.wave_gen_bg.reset()
-        self.wave_gen_solo.reset()
-        self.wave_gen_solo.set_gain(1)
+        self.wave_gen.reset()
+        self.wave_gen.set_gain(1)
 
     # needed to update audio
     def on_update(self):
@@ -411,6 +399,44 @@ class GemDisplay(InstructionGroup):
         return True
 
 
+# for 3D background
+class Star(InstructionGroup):
+    def __init__(self, second):
+        super(Star, self).__init__()
+        color = (1, 1, 1, 0.5)
+        self.color = Color(*color)
+        self.add(self.color)
+        self.circle = CEllipse(cpos = center, size = (0, 0), segments = 5)
+        self.add(self.circle)
+        floating_num_seconds = 7
+        self.side = random.choice(["top", "bottom", "left", "right"])
+        # TODO: randomize?
+        max_r = 5
+        self.r_anim = KFAnim((second, 0), (second + floating_num_seconds, max_r))
+        if self.side == "top":
+            self.pos_anim = KFAnim((second, center[0], center[1]), \
+                (second + floating_num_seconds, random.random() * Window.width, Window.height))
+        if self.side == "bottom":
+            self.pos_anim = KFAnim((second, center[0], center[1]), \
+                (second + floating_num_seconds, random.random() * Window.width, 0))
+        if self.side == "left":
+            self.pos_anim = KFAnim((second, center[0], center[1]), \
+                (second + floating_num_seconds, 0, random.random() * Window.height))
+        if self.side == "right":
+            self.pos_anim = KFAnim((second, center[0], center[1]), \
+                (second + floating_num_seconds, Window.width, random.random() * Window.height))
+
+    def set_second(self, second):
+        pos = self.pos_anim.eval(second)
+        self.circle.cpos = pos
+        r = self.r_anim.eval(second)
+        self.circle.size = (2 * r, 2 * r)
+        return self.pos_anim.is_active(second)
+
+    def on_update(self, dt):
+        return True
+
+
 # display for a single barline
 class BarlineDisplay(InstructionGroup):
     def __init__(self):
@@ -565,6 +591,7 @@ class BeatMatchDisplay(InstructionGroup):
             "right": None,
             "left": None
         }
+        self.star_seconds_counter = 0
 
     # called by Player. Causes the right thing to happen
     def gem_hit(self, gem_idx, accuracy, second):
@@ -601,6 +628,9 @@ class BeatMatchDisplay(InstructionGroup):
     # call every frame to make gems and barlines flow down the screen
     def on_update(self, frame):
         second = frame / Audio.sample_rate
+        if self.star_seconds_counter / 10 < second:
+            self.trans.add_obj(Star(second))
+            self.star_seconds_counter += 1
         if self.gem_index < len(self.gem_data):
             gem_time, gem_label = self.gem_data[self.gem_index]
             gem_direction = direction_number_map[int(gem_label)]
@@ -665,7 +695,6 @@ class Player(object):
             gem_index += 1
         self.pass_gem_index = new_pass_gem_index
         self.display.on_tap(side_bar.direction, hit, hand)
-        # self.audio_ctrl.set_mute(not hit)
         # if not hit:  # Temporal miss or Lane miss
         #     self.audio_ctrl.play_sfx()
 
