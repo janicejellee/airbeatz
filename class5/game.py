@@ -251,13 +251,16 @@ class GemDisplay(InstructionGroup):
         self.time = second
         self.direction = direction
 
+        # line points
         if self.direction == 'up_left' or self.direction == 'up_right':
             starting_pts = [Window.width/2, Window.height/2, Window.width/2, Window.height/2]
         else:
             starting_pts = [Window.width/2-50, Window.height/2, Window.width/2+50, Window.height/2]
 
-        self.width = 5
+        self.width = 1
         self.line = Line(points=starting_pts, width=self.width)
+
+        # line colors
         colors = {
             'left': Color(255/255, 255/255, 77/255, self.orig_a),
             'right': Color(77/255, 148/255, 255/255, self.orig_a),
@@ -269,8 +272,9 @@ class GemDisplay(InstructionGroup):
         self.add(self.color)
         self.add(self.line)
 
-        self.time = second
 
+        # animations
+        self.time = second
         num_seconds_to_screen_edge_bottom = num_seconds / (Window.height/2 - bottom_y) * Window.height/2
         num_seconds_to_screen_edge_sides = num_seconds / (Window.width/2 - left_x) * Window.width/2
         if self.direction == 'left':
@@ -286,10 +290,10 @@ class GemDisplay(InstructionGroup):
             self.pos_anim_0 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_sides, Window.width, Window.height/2+100))
             self.pos_anim_1 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + num_seconds_to_screen_edge_sides, Window.width, Window.height/2-150))
 
+        self.width_anim = KFAnim((self.time, 1), (self.time + num_seconds_to_screen_edge_bottom, 10))
+
         self.time = 0
         self.hit = False
-
-        self.width_anim = None
 
     # change to display this gem being hit
     def on_hit(self):
@@ -313,7 +317,9 @@ class GemDisplay(InstructionGroup):
         if self.pos_anim_0:
             p0 = self.pos_anim_0.eval(second)
             p1 = self.pos_anim_1.eval(second)
+            w = self.width_anim.eval(second)
             self.line.points = [p0[0], p0[1], p1[0], p1[1]]
+            self.line.width = w
             return self.pos_anim_0.is_active(second)
         return True
 
