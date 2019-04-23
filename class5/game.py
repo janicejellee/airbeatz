@@ -201,17 +201,17 @@ class AccuracyDisplay(InstructionGroup):
         super(AccuracyDisplay, self).__init__()
         self.accuracy = accuracy
         font_size = 25
-        self.pos = pos 
+        self.pos = pos
         self.size = (100, 25)
         self.box = Rectangle(pos=pos, size=self.size)
         box_color = Color(0, 0, 0, 0)
         self.add(box_color)
         self.add(self.box)
-        
+
         label = CoreLabel(text=self.accuracy, font_size=font_size)
         # the label is usually not drawn until needed, so force it to draw
         label.refresh()
-        # now access the texture of the label and use it 
+        # now access the texture of the label and use it
         texture = label.texture
         if accuracy == "Perfect":
             self.color = Color(0, 1, 0)
@@ -258,7 +258,14 @@ class GemDisplay(InstructionGroup):
 
         self.width = 5
         self.line = Line(points=starting_pts, width=self.width)
-        self.color = Color(242, 242, 242, self.orig_a)
+        colors = {
+            'left': Color(255/255, 255/255, 77/255, self.orig_a),
+            'right': Color(77/255, 148/255, 255/255, self.orig_a),
+            'up_left': Color(255/255, 102/255, 102/255, self.orig_a),
+            'up_right': Color(102/255, 255/255, 102/255, self.orig_a)
+        }
+        self.color = colors[self.direction]
+        # self.color = Color(242, 242, 242, self.orig_a)
         self.add(self.color)
         self.add(self.line)
 
@@ -282,17 +289,6 @@ class GemDisplay(InstructionGroup):
         self.time = 0
         self.hit = False
 
-        # left_pts = [Window.width/2-275, 100, Window.width/2-25, 100]
-        # left_line = Line(points=left_pts, width=10)
-        #
-        # right_pts = [Window.width/2+25, 100, Window.width/2+275, 100]
-        # right_line = Line(points=right_pts, width=10)
-        #
-        # left_top_pts = [Window.width/2-300, 150, Window.width/2-300, 400]
-        # left_top_line = Line(points=left_top_pts, width=10)
-        #
-        # right_top_pts = [Window.width/2+300, 150, Window.width/2+300, 400]
-        # right_top_line = Line(points=right_top_pts, width=10)
         self.width_anim = None
 
     # change to display this gem being hit
@@ -364,7 +360,14 @@ class SideBarDisplay(InstructionGroup):
         self.points = direction_line_points[self.direction]
         self.line = Line(points=self.points, width=10)
         self.orig_a = 0.5
-        self.color = Color(242, 242, 242, self.orig_a)
+        colors = {
+            'left': Color(255/255, 255/255, 77/255, self.orig_a),
+            'right': Color(77/255, 148/255, 255/255, self.orig_a),
+            'up_left': Color(255/255, 102/255, 102/255, self.orig_a),
+            'up_right': Color(102/255, 255/255, 102/255, self.orig_a)
+        }
+        self.color = colors[self.direction]
+        # self.color = Color(242, 242, 242, self.orig_a)
         self.add(self.color)
         self.add(self.line)
 
