@@ -33,7 +33,7 @@ direction_number_map = {
     2: "right",
     3: "up_right"
 }  # labels are numbers 0 to 4 in gem_data.txt, which correspond to the directions
-center = (Window.width/2, Window.height/2)
+center = (Window.width/2, Window.height/2 + 50)
 
 class MainWidget(BaseWidget) :
     def __init__(self):
@@ -364,20 +364,20 @@ class GemDisplay(InstructionGroup):
 
         # animations
         self.time = second
-        NUM_SECONDS_to_screen_edge_bottom = NUM_SECONDS / (Window.height/2 - bottom_y) * Window.height/2
-        NUM_SECONDS_to_screen_edge_sides = NUM_SECONDS / (Window.width/2 - left_x) * Window.width/2
+        NUM_SECONDS_to_screen_edge_bottom = NUM_SECONDS / (center[1] - bottom_y) * center[1]
+        NUM_SECONDS_to_screen_edge_sides = NUM_SECONDS / (center[0] - left_x) * center[0]
         if self.direction == 'left':
-            self.pos_anim_0 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + NUM_SECONDS_to_screen_edge_bottom, Window.width/2-400, 0))
-            self.pos_anim_1 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + NUM_SECONDS_to_screen_edge_bottom, Window.width/2-100, 0))
+            self.pos_anim_0 = KFAnim((self.time, center[0], center[1]), (self.time + NUM_SECONDS_to_screen_edge_bottom, Window.width/2-350, 0))
+            self.pos_anim_1 = KFAnim((self.time, center[0], center[1]), (self.time + NUM_SECONDS_to_screen_edge_bottom, Window.width/2-50, 0))
         elif self.direction == 'right':
-            self.pos_anim_0 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + NUM_SECONDS_to_screen_edge_bottom, Window.width/2+400, 0))
-            self.pos_anim_1 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + NUM_SECONDS_to_screen_edge_bottom, Window.width/2+100, 0))
+            self.pos_anim_0 = KFAnim((self.time, center[0], center[1]), (self.time + NUM_SECONDS_to_screen_edge_bottom, Window.width/2+350, 0))
+            self.pos_anim_1 = KFAnim((self.time, center[0], center[1]), (self.time + NUM_SECONDS_to_screen_edge_bottom, Window.width/2+50, 0))
         elif self.direction == 'up_left':
-            self.pos_anim_0 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + NUM_SECONDS_to_screen_edge_sides, 0, Window.height/2+100))
-            self.pos_anim_1 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + NUM_SECONDS_to_screen_edge_sides, 0, Window.height/2-150))
+            self.pos_anim_0 = KFAnim((self.time, center[0], center[1]), (self.time + NUM_SECONDS_to_screen_edge_sides, 0, Window.height/2+50))
+            self.pos_anim_1 = KFAnim((self.time, center[0], center[1]), (self.time + NUM_SECONDS_to_screen_edge_sides, 0, Window.height/2-175))
         elif self.direction == 'up_right':
-            self.pos_anim_0 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + NUM_SECONDS_to_screen_edge_sides, Window.width, Window.height/2+100))
-            self.pos_anim_1 = KFAnim((self.time, Window.width/2, Window.height/2), (self.time + NUM_SECONDS_to_screen_edge_sides, Window.width, Window.height/2-150))
+            self.pos_anim_0 = KFAnim((self.time, center[0], center[1]), (self.time + NUM_SECONDS_to_screen_edge_sides, Window.width, Window.height/2+50))
+            self.pos_anim_1 = KFAnim((self.time, center[0], center[1]), (self.time + NUM_SECONDS_to_screen_edge_sides, Window.width, Window.height/2-175))
 
         self.width_anim = KFAnim((self.time, 1), (self.time + NUM_SECONDS_to_screen_edge_bottom, 10))
 
