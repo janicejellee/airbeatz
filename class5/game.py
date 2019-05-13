@@ -2,6 +2,7 @@ import sys
 sys.path.append('..')
 from common.core import *
 from common.audio import *
+from common.synth import *
 from common.mixer import *
 from common.wavegen import *
 from common.wavesrc import *
@@ -48,7 +49,7 @@ class MainWidget(BaseWidget) :
         self.audio_ctrl.toggle()
         self.audio = self.audio_ctrl.audio
 
-        self.player = Player(self.gem_data, self.display, self.audio_ctrl)
+        self.player = Player(self.gem_data, self.display, self.audio_ctrl, self.audio_ctrl.on_tap)
 
         self.label = topleft_label()
         self.add_widget(self.label)
@@ -207,6 +208,13 @@ class AudioController(object):
         self.wave_gen = WaveGenerator(self.wave_file)
         self.mixer.add(self.wave_gen)
 
+        # for tapping noise
+        self.synth = Synth('../data/FluidR3_GM.sf2')
+        self.synth.program(0, 128, 48)
+        self.mixer.add(self.synth)
+        self.max_sound_timestep = 20
+        self.sound_timestep = -1
+
     # start / stop the song
     def toggle(self):
         self.wave_gen.play_toggle()
@@ -225,8 +233,19 @@ class AudioController(object):
         self.wave_gen.reset()
         self.wave_gen.set_gain(1)
 
+    def on_tap(self):
+        self.synth.noteon(0, 76, 80)
+        self.sound_timestep = 20
+    
+    def sound_off(self):
+        self.synth.noteoff(0, 36)
+
     # needed to update audio
     def on_update(self):
+        if self.sound_timestep == 0:
+            self.sound_off()
+        elif self.sound_timestep > -1:
+            self.sound_timestep -= 1
         if self.wave_gen not in self.mixer.generators:
             return False
         self.audio.on_update()
@@ -518,11 +537,12 @@ class SideBarDisplay(InstructionGroup):
 # correspondence).
 # the callback function takes a single argument: SideBar being tapped
 class TapGesture(object):
-    def __init__(self, side_bar, tap_callback, release_tap_callback):
+    def __init__(self, side_bar, tap_callback, release_tap_callback, sound_tap_callback):
         super(TapGesture, self).__init__()
         self.side_bar = side_bar
         self.tap_callback = tap_callback
         self.release_tap_callback = release_tap_callback
+        self.sound_tap_callback = sound_tap_callback
 
         x1, y1, x2, y2 = self.side_bar.points
         self.x_range = sorted([x1, x2])
@@ -537,6 +557,7 @@ class TapGesture(object):
             pos[1] > self.y_range[0] - self.y_threshold and pos[1] < self.y_range[1] + self.y_threshold:
             if not self.side_bar.tapped:
                 self.tap_callback(self.side_bar, hand)
+                self.sound_tap_callback()
         # if hand position is outside side bar and side_bar was tapped, mark as untapped
         elif self.side_bar.tapped:
             self.release_tap_callback(self.side_bar, hand)
@@ -659,7 +680,7 @@ class BeatMatchDisplay(InstructionGroup):
 # Handles game logic and keeps score.
 # Controls the display and the audio
 class Player(object):
-    def __init__(self, gem_data, display, audio_ctrl):
+    def __init__(self, gem_data, display, audio_ctrl, sound_tap_callback):
         super(Player, self).__init__()
         self.score = 0
         self.gem_data = gem_data
@@ -673,7 +694,7 @@ class Player(object):
         self.num_goods = 0
         self.num_misses = 0
 
-        self.tap_gestures = [TapGesture(side_bar, self.on_tap, self.on_release_tap) for direction, side_bar in self.display.side_bars.items()]
+        self.tap_gestures = [TapGesture(side_bar, self.on_tap, self.on_release_tap, sound_tap_callback) for direction, side_bar in self.display.side_bars.items()]
 
     def on_tap(self, side_bar, hand):
         second = self.audio_ctrl.get_frame() / Audio.sample_rate
@@ -707,7 +728,7 @@ class Player(object):
         self.display.on_release_tap(side_bar.direction, hand)
 
     def on_end_game(self):
-        self.score = 0
+        # self.score = 0
         self.pass_gem_index = -1
 
     # needed to check if for pass gems (ie, went past the slop window)
