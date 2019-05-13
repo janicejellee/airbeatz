@@ -39,6 +39,10 @@ class MainWidget(BaseWidget) :
     def __init__(self):
         super(MainWidget, self).__init__()
 
+        image_path = "../images/bongo_cat_raised_paws.png"
+        self.image = Image(100, 105, center, image_path)
+        self.canvas.add(self.image)
+
         self.song_data = SongData()
         self.gem_data = self.song_data.read_gem_data('../data/gem_data_thank_u_next_1_min.txt')
         barline_times = self.song_data.read_barline_data('../data/barline_data.txt')
@@ -741,6 +745,32 @@ class Player(object):
             # self.audio_ctrl.set_mute(True)
             gem_index += 1
         self.pass_gem_index = gem_index - 1
+
+
+class Image(InstructionGroup):
+    def __init__(self, width, height, center_pos, image_path):
+        super(Image, self).__init__()
+        self.width = width
+        self.height = height
+        self.size = (self.width, self.height)
+        self.image_path = image_path
+        self.image = Rectangle(source=image_path, pos=[center_pos[0]-width/2, center_pos[1]-height/2], size=self.size)
+        self.add(self.image)
+        self.active = True
+
+    def set_pos(self, pos):
+        self.blob.pos = pos
+
+    # change image
+    def set_image_path(self, image_path):
+        self.image_path = image_path
+        self.image.source = image_path
+
+    def delete(self):
+        self.active = False
+
+    def on_update(self, dt):
+        return self.active
 
 
 # for use with scale_point:
