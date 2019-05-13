@@ -22,7 +22,7 @@ from common.leaputil import *
 import Leap
 
 NUM_GEMS = None
-NUM_SECONDS = 3  # how long it takes for lines to move from center to bars
+NUM_SECONDS = 2  # how long it takes for lines to move from center to bars
 bottom_y = 100
 left_x = Window.width/2-300
 right_x = Window.width/2+300
