@@ -36,7 +36,17 @@ direction_number_map = {
 }  # labels are numbers 0 to 4 in gem_data.txt, which correspond to the directions
 center = (Window.width/2, Window.height/2 + 50)
 
-current_song_index = 0
+# current_song_index = 0
+songs = [
+    {
+        'wav_path': '../data/thank_u_next_1_min.wav',
+        'gem_data_path': '../data/gem_data_thank_u_next_'  # 'easy.txt'
+    },
+    {
+        'wav_path': '../data/flower_dance.wav',
+        'gem_data_path': '../data/gem_data_flower_dance_'  # 'easy.txt'
+    }
+]
 
 index_to_song = {
     0: 'Thank u, Next',
@@ -111,6 +121,7 @@ class MainWidget(BaseWidget) :
         # self.canvas.add(self.score_label)
 
         self.label = topleft_label()
+        self.label.text = ""
         self.add_widget(self.label)
 
         self.leap = Leap.Controller()
@@ -127,6 +138,21 @@ class MainWidget(BaseWidget) :
 
         self.right_hand_disp = Cursor3D(kCursorSize, kCursorPos, hand_color)
         self.canvas.add(self.right_hand_disp)
+
+        self.difficulty = 'Easy'
+        self.difficulty_rec_label = None
+        self.set_difficulty_label()
+
+    def set_difficulty_label(self):
+        if self.difficulty_rec_label is not None:
+            self.canvas.remove(self.difficulty_rec_label)
+        self.difficulty_label = CoreLabel(text=self.difficulty, font_size=25)
+        self.difficulty_label.refresh()
+        self.difficulty_texture = self.difficulty_label.texture
+        self.canvas.add(Color(1,1,1))
+        text_pos = [Window.width*0.5, Window.height*0.2]
+        self.difficulty_rec_label = Rectangle(size=self.difficulty_texture.size, pos=text_pos, texture=self.difficulty_texture)
+        self.canvas.add(self.difficulty_rec_label)
 
     def on_key_down(self, keycode, modifiers):
         # play / pause toggle
@@ -146,7 +172,18 @@ class MainWidget(BaseWidget) :
             self.on_restart()
         elif keycode[1] == 'enter':
             pass
-
+        elif keycode[1] == 'up':
+            if self.difficulty == 'Medium':
+                self.difficulty = 'Easy'
+            elif self.difficulty == 'Hard':
+                self.difficulty = 'Medium'
+            self.set_difficulty_label()
+        elif keycode[1] == 'down':
+            if self.difficulty == 'Easy':
+                self.difficulty = 'Medium'
+            elif self.difficulty == 'Medium':
+                self.difficulty = 'Hard'
+            self.set_difficulty_label()
 
     def on_start_game(self):
         self.canvas.clear()
@@ -155,6 +192,8 @@ class MainWidget(BaseWidget) :
 
     def on_restart(self):
         self.canvas.clear()
+        self.audio_ctrl.set_song(songs[self.song_menu.current_song_index]['wav_path'])
+        self.gem_data = self.song_data.read_gem_data(songs[self.song_menu.current_song_index]['gem_data_path'] + self.difficulty.lower() + '.txt')
         self.audio_ctrl.on_restart()
         self.display.on_restart()
         self.canvas.add(self.logo)
@@ -344,6 +383,7 @@ class SongMenu(InstructionGroup):
                 img.move_right(1)
                 label = self.list_labels[i]
                 label.move_right(1)
+            # self.move_right = True
         elif keycode[1] == 'left' and self.current_song_index>0:
             self.current_song_index -= 1
             print ("left")
@@ -352,6 +392,7 @@ class SongMenu(InstructionGroup):
                 img.move_left(1)
                 label = self.list_labels[i]
                 label.move_left(1)
+            # self.move_left = True
 
     def on_update(self):
         self.anim_group.on_update()
@@ -379,6 +420,13 @@ class AudioController(object):
         self.mixer.add(self.synth)
         self.max_sound_timestep = 20
         self.sound_timestep = -1
+
+    def set_song(self, song_path):
+        if song_path != self.song_path:
+            self.mixer.remove(self.wave_gen)
+            self.wave_file = WaveFile(song_path)
+            self.wave_gen = WaveGenerator(self.wave_file)
+            self.mixer.add(self.wave_gen)
 
     # start / stop the song
     def toggle(self):
