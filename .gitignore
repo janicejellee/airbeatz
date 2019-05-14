@@ -3,3 +3,4 @@ data/FluidR3_GM.sf2
 common/
 .vscode/
 *.pyc
+*.sv

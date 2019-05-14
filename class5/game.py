@@ -56,6 +56,15 @@ index_to_img = {
     2: "../images/umaru.jpg"
 }
 
+# gem_data_path = '../data/gem_data_thank_u_next_easy.txt'
+# gem_data_path = '../data/gem_data_thank_u_next_medium.txt'
+# gem_data_path = '../data/gem_data_thank_u_next_hard.txt'
+# wav_path = '../data/thank_u_next_1_min.wav'
+# gem_data_path = '../data/gem_data_flower_dance_medium.txt'
+# gem_data_path = '../data/gem_data_flower_dance_easy.txt'
+gem_data_path = '../data/gem_data_flower_dance_hard.txt'
+wav_path = '../data/flower_dance.wav'
+
 class MainWidget(BaseWidget) :
     def __init__(self):
         super(MainWidget, self).__init__()
@@ -70,36 +79,30 @@ class MainWidget(BaseWidget) :
         self.in_game = False
         self.song_menu = SongMenu()
 
+        logo_path = "../images/airbeatz_logo.png"
+        self.logo = Image(193, 36, [center[0], Window.height - 50], logo_path)
+        self.canvas.add(self.logo)
 
-    def on_key_down(self, keycode, modifiers):
-        # play / pause toggle
-        self.song_menu.on_key_down(keycode, modifiers)
-        if keycode[1] == 'p' and self.in_game:
-            self.audio_ctrl.toggle()
-        elif keycode[1] == 'q' and self.in_game:
-            self.in_game = False
-            self.on_end_game()
-        elif keycode[1] == 's':
-            self.in_game = True
-            self.on_start_game()
-        elif keycode[1] == 'enter':
-            pass
-
-    def on_start_game(self):
-        self.canvas.clear()
-        self.song_menu.clear()
         self.song_data = SongData()
+        self.gem_data = self.song_data.read_gem_data(gem_data_path)
+        # barline_times = self.song_data.read_barline_data('../data/barline_data.txt')
+        # self.display = BeatMatchDisplay(self.gem_data, barline_times, self.on_end_game)
+        self.display = BeatMatchDisplay(self.gem_data, self.on_end_game)
+        # self.canvas.add(self.display)
 
-        self.gem_data = self.song_data.read_gem_data('../data/gem_data_thank_u_next_1_min.txt')
-        barline_times = self.song_data.read_barline_data('../data/barline_data.txt')
-        self.display = BeatMatchDisplay(self.gem_data, barline_times, self.on_end_game)
-        self.canvas.add(self.display)
-
-        self.audio_ctrl = AudioController('../data/thank_u_next_1_min.wav')
+        self.audio_ctrl = AudioController(wav_path)
         self.audio_ctrl.toggle()
         self.audio = self.audio_ctrl.audio
 
         self.player = Player(self.gem_data, self.display, self.audio_ctrl, self.audio_ctrl.on_tap)
+
+        # self.score_display = CoreLabel(text='Score: %d'%(self.player.score), font_size=25)
+        # self.score_display.refresh()
+        # self.score_texture = self.score_display.texture
+        # self.canvas.add(Color(1, 1, 1))
+        # score_text_pos = [Window.width * 7/9, Window.height * 4/5]
+        # self.score_label = Rectangle(size=self.score_texture.size, pos=score_text_pos, texture=self.score_texture)
+        # self.canvas.add(self.score_label)
 
         self.label = topleft_label()
         self.add_widget(self.label)
@@ -111,11 +114,51 @@ class MainWidget(BaseWidget) :
         kCursorSize = Window.width - 2 * kMargin, Window.height - 2 * kMargin
         kCursorPos = kMargin, kMargin
 
-        self.left_hand_disp = Cursor3D(kCursorSize, kCursorPos, (.2, .2, .6))
+        # hand_color = (148/255,0,211/255)
+        hand_color = (1,1,1, 0.7)
+        self.left_hand_disp = Cursor3D(kCursorSize, kCursorPos, hand_color)
         self.canvas.add(self.left_hand_disp)
 
-        self.right_hand_disp = Cursor3D(kCursorSize, kCursorPos, (.2, .6, .2))
+        self.right_hand_disp = Cursor3D(kCursorSize, kCursorPos, hand_color)
         self.canvas.add(self.right_hand_disp)
+
+    def on_key_down(self, keycode, modifiers):
+        # play / pause toggle
+        self.song_menu.on_key_down(keycode, modifiers)
+        if keycode[1] == 'p' and self.in_game:
+            self.audio_ctrl.toggle()
+        elif keycode[1] == 'q' and self.in_game:
+            self.in_game = False
+            self.on_end_game()
+        elif keycode[1] == 's':
+            self.song_menu.clear()
+            self.in_game = True
+            # self.canvas.add(self.display)
+            self.on_restart()
+            # self.on_start_game()
+        elif keycode[1] == 'r':
+            self.on_restart()
+        elif keycode[1] == 'enter':
+            pass
+
+
+    def on_start_game(self):
+        self.canvas.clear()
+        self.song_menu.clear()
+        self.song_data = SongData()
+
+    def on_restart(self):
+        self.canvas.clear()
+        self.audio_ctrl.on_restart()
+        self.display.on_restart()
+        self.canvas.add(self.logo)
+        self.canvas.add(self.display)
+        self.player.on_restart()
+        self.canvas.add(self.left_hand_disp)
+        self.canvas.add(self.right_hand_disp)
+        self.left_hand_pos = [0,0,0]
+        self.right_hand_pos = [0,0,0]
+
 
     def on_end_game(self):
         self.song_selected = False
@@ -127,7 +170,8 @@ class MainWidget(BaseWidget) :
             'Normal': Color(217/255, 217/255, 217/255),
             'Perfect': Color(0, 1, 0),
             'Good': Color(1, 127/255, 80/255),
-            'Miss': Color(1, 0, 0)
+            'Miss': Color(1, 0, 0),
+            'Combo': Color(0, 0, 1)
         }
 
         text_height = 200
@@ -150,10 +194,11 @@ class MainWidget(BaseWidget) :
         nums = {
             'Perfect': self.player.num_perfects,
             'Good': self.player.num_goods,
-            'Miss': self.player.num_misses
+            'Miss': self.player.num_misses,
+            'Combo': self.player.highest_combo
         }
 
-        for acc in ['Perfect', 'Good', 'Miss']:
+        for acc in ['Perfect', 'Good', 'Miss', 'Combo']:
             color = font_colors[acc]
             label = CoreLabel(text=acc, font_size=30)
             label.refresh()
@@ -175,13 +220,13 @@ class MainWidget(BaseWidget) :
         total_poss_score = len(self.gem_data) * 10
         percent = self.player.score / total_poss_score
 
-        if percent > 0.9:
+        if percent > 0.85:
             grade = 'A'
-        elif percent > 0.8:
-            grade = 'B'
         elif percent > 0.7:
+            grade = 'B'
+        elif percent > 0.55:
             grade = 'C'
-        elif percent > 0.6:
+        elif percent > 0.4:
             grade = 'D'
         else:
             grade = 'F'
@@ -239,6 +284,7 @@ class MainWidget(BaseWidget) :
             if not song_ended:
                 self.label.text += 'Score: %s\n' % (self.player.score)
 
+
 # Basic songs menu
 class SongMenu(InstructionGroup):
     def __init__(self):
@@ -271,7 +317,7 @@ class SongMenu(InstructionGroup):
 
     def on_key_down(self, keycode, modifiers):
         print (keycode)
-        if keycode[1] == 'enter':
+        if keycode[1] == 's':
             print ("Song was selected")
             current_song_index = self.current_song_index
         elif keycode[1] == 'right' and self.current_song_index<2:
@@ -357,6 +403,11 @@ class AudioController(object):
     def get_frame(self):
         return self.wave_gen.frame
 
+    def on_restart(self):
+        self.wave_gen.reset()
+        self.wave_gen.set_gain(1)
+        self.wave_gen.play()
+
     def on_end_game(self):  # reset
         self.wave_gen.reset()
         self.wave_gen.set_gain(1)
@@ -441,6 +492,41 @@ class AccuracyDisplay(InstructionGroup):
         self.label = Rectangle(size=texture.size, pos=text_pos, texture=texture)
         self.add(self.label)
         max_time = 2
+        self.alpha_anim = KFAnim((second, 1), (second + max_time, 0)) # color disappears
+        self.set_second(second)
+
+    def set_second(self, second):
+        alpha = self.alpha_anim.eval(second)
+        self.color.a = alpha
+        return self.alpha_anim.is_active(second)
+
+    def on_update(self, dt):
+        return True
+
+
+class ComboDisplay(InstructionGroup):
+    def __init__(self, combo, second):
+        super(ComboDisplay, self).__init__()
+        self.combo = combo
+        font_size = 25
+        self.pos = [Window.width/2, Window.height/2+100]
+        self.size = (100, 25)
+        self.box = Rectangle(pos=self.pos, size=self.size)
+        box_color = Color(0, 0, 0, 0)
+        self.add(box_color)
+        self.add(self.box)
+
+        label = CoreLabel(text='Combo %d'%(self.combo), font_size=font_size)
+        # the label is usually not drawn until needed, so force it to draw
+        label.refresh()
+        # now access the texture of the label and use it
+        texture = label.texture
+        self.color = Color(0, 0, 1)
+        self.add(self.color)
+        text_pos = list(self.pos[i] + (self.size[i] - texture.size[i]) / 2 for i in range(2))
+        self.label = Rectangle(size=texture.size, pos=text_pos, texture=texture)
+        self.add(self.label)
+        max_time = 1
         self.alpha_anim = KFAnim((second, 1), (second + max_time, 0)) # color disappears
         self.set_second(second)
 
@@ -703,6 +789,11 @@ class Translate(InstructionGroup):
         self.anim_group.add(obj)
         self.objs.append(obj)
 
+    def on_restart(self):
+        self.objs = []
+        self.anim_group.clear()
+        self.inactive_indices = []
+
     def on_end_game(self):  # reset
         self.objs = []
         self.anim_group.clear()
@@ -721,26 +812,24 @@ class Translate(InstructionGroup):
 
 # Displays and controls all game elements: SideBars, BarLines?, Gems.
 class BeatMatchDisplay(InstructionGroup):
-    def __init__(self, gem_data, barline_times, end_game_callback):
+    # def __init__(self, gem_data, barline_times, end_game_callback):
+    def __init__(self, gem_data, end_game_callback):
         super(BeatMatchDisplay, self).__init__()
 
+        self.end_game_callback = end_game_callback
+        self.gem_data = gem_data
         self.side_bars = {}
         for direction in directions:
             side_bar = SideBarDisplay(direction)
             self.add(side_bar)
             self.side_bars[direction] = side_bar
-
-        self.gem_data = gem_data
-        self.gem_index = 0
-        self.barline_times = barline_times
-        self.barline_index = 0
-
-        self.gems = []
-
         self.trans = Translate()
         self.add(self.trans)
 
-        self.end_game_callback = end_game_callback
+        self.gem_index = 0
+        # self.barline_times = barline_times
+        # self.barline_index = 0
+        self.gems = []
         self.side_bars_tapped = {
             "right": None,
             "left": None
@@ -748,10 +837,12 @@ class BeatMatchDisplay(InstructionGroup):
         self.star_seconds_counter = 0
 
     # called by Player. Causes the right thing to happen
-    def gem_hit(self, gem_idx, accuracy, second):
+    def gem_hit(self, gem_idx, accuracy, second, combo=None):
         if gem_idx < len(self.gems):
             self.gems[gem_idx].on_hit()
             self.trans.add_obj(AccuracyDisplay(accuracy, self.gems[gem_idx].get_pos(), second))
+            if combo is not None:
+                self.trans.add_obj(ComboDisplay(combo, second))
 
     # called by Player. Causes the right thing to happen
     def gem_pass(self, gem_idx, second):
@@ -773,10 +864,24 @@ class BeatMatchDisplay(InstructionGroup):
             self.side_bars[direction].on_release_tap()
             self.side_bars[direction].set_tapped(False)
 
+    def on_restart(self):
+        self.clear()
+        for direction in self.side_bars:
+            self.add(self.side_bars[direction])
+        self.gem_index = 0
+        self.gems = []
+        self.side_bars_tapped = {
+            "right": None,
+            "left": None
+        }
+        self.star_seconds_counter = 0
+        self.trans.on_restart()
+        self.add(self.trans)
+
     def on_end_game(self):
         self.clear()
         self.gem_index = 0
-        self.barline_index = 0
+        # self.barline_index = 0
         self.trans.on_end_game()
 
     # call every frame to make gems and barlines flow down the screen
@@ -795,13 +900,13 @@ class BeatMatchDisplay(InstructionGroup):
                 self.gems.append(gem)
                 self.trans.add_obj(gem)
                 self.gem_index += 1
-        if self.barline_index < len(self.barline_times):
-            barline_time = self.barline_times[self.barline_index]
-            if barline_time - NUM_SECONDS < second:
-                # self.trans.add_obj(BarlineDisplay(), second)
-                self.barline_index += 1
-        else:  # End game when no more barlines
-            self.end_game_callback()
+        # if self.barline_index < len(self.barline_times):
+        #     barline_time = self.barline_times[self.barline_index]
+        #     if barline_time - NUM_SECONDS < second:
+        #         # self.trans.add_obj(BarlineDisplay(), second)
+        #         self.barline_index += 1
+        # else:  # End game when no more barlines
+        #     self.end_game_callback()
         self.trans.on_update(second)
 
 
@@ -810,19 +915,31 @@ class BeatMatchDisplay(InstructionGroup):
 class Player(object):
     def __init__(self, gem_data, display, audio_ctrl, sound_tap_callback):
         super(Player, self).__init__()
-        self.score = 0
         self.gem_data = gem_data
         self.display = display
         self.audio_ctrl = audio_ctrl
-        self.pass_gem_index = -1  # most recent gem that went past the slop window
         self.good_slop_window = 0.15 # +-150 ms
         self.perfect_slop_window = 0.08 # +-80 ms
+        self.tap_gestures = [TapGesture(side_bar, self.on_tap, self.on_release_tap, sound_tap_callback) for direction, side_bar in self.display.side_bars.items()]
+        self.min_combo = 5
 
+        self.pass_gem_index = -1  # most recent gem that went past the slop window
+        self.score = 0
         self.num_perfects = 0
         self.num_goods = 0
         self.num_misses = 0
+        self.combo = 0
+        self.highest_combo = 0
+        # self.previous_hit = False  # True if last tap was a hit, False if was a miss
 
-        self.tap_gestures = [TapGesture(side_bar, self.on_tap, self.on_release_tap, sound_tap_callback) for direction, side_bar in self.display.side_bars.items()]
+    def on_restart(self):
+        self.pass_gem_index = -1  # most recent gem that went past the slop window
+        self.score = 0
+        self.num_perfects = 0
+        self.num_goods = 0
+        self.num_misses = 0
+        self.combo = 0
+        self.highest_combo = 0
 
     def on_tap(self, side_bar, hand):
         second = self.audio_ctrl.get_frame() / Audio.sample_rate
@@ -835,12 +952,19 @@ class Player(object):
             if gem_direction == side_bar.direction:  # Hit
                 hit = True
                 gem_second = self.gem_data[gem_index][0]
+                self.combo += 1  # Add on to combo
                 if abs(gem_second - second) <= self.perfect_slop_window:
-                    self.display.gem_hit(gem_index, "Perfect", second)
+                    if self.combo >= self.min_combo:  # Display combo if > minimum combo
+                        self.display.gem_hit(gem_index, "Perfect", second, self.combo)
+                    else:
+                        self.display.gem_hit(gem_index, "Perfect", second, None)
                     self.score += 10
                     self.num_perfects += 1
                 elif abs(gem_second - second) <= self.good_slop_window:
-                    self.display.gem_hit(gem_index, "Good", second)
+                    if self.combo >= self.min_combo:
+                        self.display.gem_hit(gem_index, "Good", second, self.combo)
+                    else:
+                        self.display.gem_hit(gem_index, "Good", second, None)
                     self.score += 5
                     self.num_goods += 1
             # else: # Else, it's a Lane miss
@@ -856,7 +980,6 @@ class Player(object):
         self.display.on_release_tap(side_bar.direction, hand)
 
     def on_end_game(self):
-        # self.score = 0
         self.pass_gem_index = -1
 
     # needed to check if for pass gems (ie, went past the slop window)
@@ -866,6 +989,10 @@ class Player(object):
         while gem_index < len(self.gem_data) and self.gem_data[gem_index][0] <= second - self.good_slop_window:
             self.display.gem_pass(gem_index, second)
             self.num_misses += 1
+            # self.previous_hit = False
+            if self.combo > self.highest_combo:  # Record highest combo before resetting combo
+                self.highest_combo = self.combo
+            self.combo = 0
             # self.audio_ctrl.set_mute(True)
             gem_index += 1
         self.pass_gem_index = gem_index - 1
