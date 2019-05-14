@@ -13,6 +13,7 @@ from kivy.graphics import Color, Ellipse, Line, Rectangle
 from kivy.graphics import PushMatrix, PopMatrix, Translate, Scale, Rotate
 from kivy.clock import Clock as kivyClock
 from kivy.core.text import Label as CoreLabel
+from kivy.uix.image import Image
 
 import random
 import numpy as np
@@ -35,15 +36,60 @@ direction_number_map = {
 }  # labels are numbers 0 to 4 in gem_data.txt, which correspond to the directions
 center = (Window.width/2, Window.height/2 + 50)
 
+current_song_index = 0
+
+index_to_song = {
+    0: 'Thank u, # NOTE: xt',
+    1: 'Flower Song',
+    2: 'Umaru'
+}
+
+index_to_data = {
+    0: 'thank u, next',
+    1: 'flower song',
+    2: 'umaru'
+}
+
+index_to_img = {
+    0: "../images/thanku_next.jpeg",
+    1: "../images/flower_dance.jpg",
+    2: "../images/umaru.jpg"
+}
+
 class MainWidget(BaseWidget) :
     def __init__(self):
         super(MainWidget, self).__init__()
 
-        image_path = "../images/bongo_cat_raised_paws.png"
-        self.image = Image(100, 105, center, image_path)
-        self.canvas.add(self.image)
+        # image_path = "../images/bongo_cat_raised_paws.png"
+        # self.image = Image(100, 105, center, image_path)
+        # self.canvas.add(self.image)
 
+        self.left_hand_pos = [0,0,0]
+        self.right_hand_pos = [0,0,0]
+        self.song_selected = False
+        self.in_game = False
+        self.song_menu = SongMenu()
+
+
+    def on_key_down(self, keycode, modifiers):
+        # play / pause toggle
+        self.song_menu.on_key_down(keycode, modifiers)
+        if keycode[1] == 'p' and self.in_game:
+            self.audio_ctrl.toggle()
+        elif keycode[1] == 'q' and self.in_game:
+            self.in_game = False
+            self.on_end_game()
+        elif keycode[1] == 's':
+            self.in_game = True
+            self.on_start_game()
+        elif keycode[1] == 'enter':
+            pass
+
+    def on_start_game(self):
+        self.canvas.clear()
+        self.song_menu.clear()
         self.song_data = SongData()
+
         self.gem_data = self.song_data.read_gem_data('../data/gem_data_thank_u_next_1_min.txt')
         barline_times = self.song_data.read_barline_data('../data/barline_data.txt')
         self.display = BeatMatchDisplay(self.gem_data, barline_times, self.on_end_game)
@@ -71,17 +117,9 @@ class MainWidget(BaseWidget) :
         self.right_hand_disp = Cursor3D(kCursorSize, kCursorPos, (.2, .6, .2))
         self.canvas.add(self.right_hand_disp)
 
-        self.left_hand_pos = [0,0,0]
-        self.right_hand_pos = [0,0,0]
-
-    def on_key_down(self, keycode, modifiers):
-        # play / pause toggle
-        if keycode[1] == 'p':
-            self.audio_ctrl.toggle()
-        elif keycode[1] == 'q':
-            self.on_end_game()
-
     def on_end_game(self):
+        self.song_selected = False
+        self.in_game = False
         self.audio_ctrl.on_end_game()
         self.display.on_end_game()
 
@@ -172,29 +210,115 @@ class MainWidget(BaseWidget) :
             tap_gesture.set_hand_pos(screen_pos, "left")
 
     def on_update(self):
-        song_ended = not self.audio_ctrl.on_update()
-        if song_ended:
-            self.on_end_game()
-        leap_frame = self.leap.frame()
-        pts = list(leap_two_palms(leap_frame))
-        # pts.sort(key=lambda pt: pt[0])  # sort by increasing x (hand with smaller x is first)
-        norm_pts = [scale_point(pt, kLeapRange) for pt in pts]
-        self.left_hand_pos = norm_pts[0]
-        self.right_hand_pos = norm_pts[1]
+        if not self.in_game:
+            # display song menu
+            self.canvas.add(self.song_menu)
+            self.song_menu.on_update()
 
-        # self.left_hand_disp.set_pos(self.left_hand_pos)
-        # self.right_hand_disp.set_pos(self.right_hand_pos)
+        else:
+            song_ended = not self.audio_ctrl.on_update()
+            if song_ended:
+                self.on_end_game()
+            leap_frame = self.leap.frame()
+            pts = list(leap_two_palms(leap_frame))
+            # pts.sort(key=lambda pt: pt[0])  # sort by increasing x (hand with smaller x is first)
+            norm_pts = [scale_point(pt, kLeapRange) for pt in pts]
+            self.left_hand_pos = norm_pts[0]
+            self.right_hand_pos = norm_pts[1]
 
-        self.set_left_hand_pos(self.left_hand_pos)
-        self.set_right_hand_pos(self.right_hand_pos)
+            # self.left_hand_disp.set_pos(self.left_hand_pos)
+            # self.right_hand_disp.set_pos(self.right_hand_pos)
 
-        frame = self.audio_ctrl.get_frame()
-        self.display.on_update(frame)
-        self.player.on_update()
-        self.label.text = ''
-        if not song_ended:
-            self.label.text += 'Score: %s\n' % (self.player.score)
+            self.set_left_hand_pos(self.left_hand_pos)
+            self.set_right_hand_pos(self.right_hand_pos)
 
+            frame = self.audio_ctrl.get_frame()
+            self.display.on_update(frame)
+            self.player.on_update()
+            self.label.text = ''
+            if not song_ended:
+                self.label.text += 'Score: %s\n' % (self.player.score)
+
+# Basic songs menu
+class SongMenu(InstructionGroup):
+    def __init__(self):
+        super(SongMenu, self).__init__()
+
+        self.current_song_index = 0
+        self.num_songs = 3
+
+        self.trans = Translate()
+        self.add(self.trans)
+
+        self.img_locations = [center, (center[0]+400, center[1]), (center[0]+800, center[1])]
+
+        self.move_right = False
+        self.move_left = False
+        self.move_counter = 80
+
+        self.list_imgs = []
+        self.anim_group = AnimGroup()
+
+        for i in range(3):
+            image_path = index_to_img[i]
+            image = Image(250, 250, self.img_locations[i], image_path)
+            self.add(image)
+            self.list_imgs.append(image)
+
+        for im in self.list_imgs:
+            self.anim_group.add(im)
+
+
+    def on_key_down(self, keycode, modifiers):
+        print (keycode)
+        if keycode[1] == 'enter':
+            print ("Song was selected")
+            current_song_index = self.current_song_index
+        elif keycode[1] == 'right' and self.current_song_index<2:
+            self.current_song_index += 1
+            print ("right")
+            for i in range(3):
+                img = self.list_imgs[i]
+                img.move_right(4)
+            # self.move_right = True
+        elif keycode[1] == 'left' and self.current_song_index>0:
+            self.current_song_index -= 1
+            print ("left")
+            for i in range(3):
+                img = self.list_imgs[i]
+                img.move_left(4)
+            # self.move_left = True
+
+    def on_update(self):
+        # if self.move_left:
+        #     print ("movin left")
+        #     print (self.move_counter)
+        #     print (self.list_imgs[0].get_pos())
+        #     self.move_counter -= 1
+        #     for i in range(3):
+        #         current_loc = self.img_locations[i]
+        #         self.img_locations[i] = (current_loc[0]+5, 225)
+        #     if self.move_counter == 0:
+        #         self.move_left = False
+        #         self.move_counter = 80
+        #     for i in range(3):
+        #         self.list_imgs[i].set_pos(self.img_locations[i])
+        #
+        # if self.move_right:
+        #     print ("movin left")
+        #     print (self.move_counter)
+        #     print (self.list_imgs[0].get_pos())
+        #     self.move_counter -= 1
+        #     for i in range(3):
+        #         current_loc = self.img_locations[i]
+        #         self.img_locations[i] = (current_loc[0]-5, 225)
+        #     if self.move_counter == 0:
+        #         self.move_right = False
+        #         self.move_counter = 80
+        #     for i in range(3):
+        #         self.list_imgs[i].set_pos(self.img_locations[i])
+        self.anim_group.on_update()
+        return True
 
 # creates the Audio driver
 # creates a song and loads it
@@ -240,7 +364,7 @@ class AudioController(object):
     def on_tap(self):
         self.synth.noteon(0, 76, 80)
         self.sound_timestep = 20
-    
+
     def sound_off(self):
         self.synth.noteoff(0, 36)
 
@@ -757,9 +881,24 @@ class Image(InstructionGroup):
         self.image = Rectangle(source=image_path, pos=[center_pos[0]-width/2, center_pos[1]-height/2], size=self.size)
         self.add(self.image)
         self.active = True
+        self.time = 0
+        self.x_anim = None
 
     def set_pos(self, pos):
-        self.blob.pos = pos
+        self.image.pos = pos
+
+    def get_pos(self):
+        return self.image.pos
+
+    def move_left(self, time_move):
+        self.x_anim = KFAnim((0, self.image.pos[0]), (time_move, self.image.pos[0] + 400))
+        self.time = 0
+        self.on_update(0)
+
+    def move_right(self, time_move):
+        self.x_anim = KFAnim((0, self.image.pos[0]), (time_move, self.image.pos[0] - 400))
+        self.time = 0
+        self.on_update(0)
 
     # change image
     def set_image_path(self, image_path):
@@ -770,6 +909,10 @@ class Image(InstructionGroup):
         self.active = False
 
     def on_update(self, dt):
+        if self.x_anim is not None:
+            x = self.x_anim.eval(self.time)
+            self.image.pos = (x, self.image.pos[1])
+            self.time += dt
         return self.active
 
 
