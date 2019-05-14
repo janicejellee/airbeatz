@@ -48,9 +48,12 @@ class MainWidget(BaseWidget) :
     def __init__(self):
         super(MainWidget, self).__init__()
 
-        image_path = "../images/bongo_cat_raised_paws.png"
-        self.image = Image(100, 105, center, image_path)
-        self.canvas.add(self.image)
+        # image_path = "../images/bongo_cat_raised_paws.png"
+        # self.image = Image(100, 105, center, image_path)
+        # self.canvas.add(self.image)
+        logo_path = "../images/airbeatz_logo.png"
+        self.logo = Image(193, 36, [center[0], Window.height - 50], logo_path)
+        self.canvas.add(self.logo)
 
         self.song_data = SongData()
         self.gem_data = self.song_data.read_gem_data(gem_data_path)
@@ -64,6 +67,14 @@ class MainWidget(BaseWidget) :
         self.audio = self.audio_ctrl.audio
 
         self.player = Player(self.gem_data, self.display, self.audio_ctrl, self.audio_ctrl.on_tap)
+
+        # self.score_display = CoreLabel(text='Score: %d'%(self.player.score), font_size=25)
+        # self.score_display.refresh()
+        # self.score_texture = self.score_display.texture
+        # self.canvas.add(Color(1, 1, 1))
+        # score_text_pos = [Window.width * 7/9, Window.height * 4/5]
+        # self.score_label = Rectangle(size=self.score_texture.size, pos=score_text_pos, texture=self.score_texture)
+        # self.canvas.add(self.score_label)
 
         self.label = topleft_label()
         self.add_widget(self.label)
@@ -99,6 +110,7 @@ class MainWidget(BaseWidget) :
         self.canvas.clear()
         self.audio_ctrl.on_restart()
         self.display.on_restart()
+        self.canvas.add(self.logo)
         self.canvas.add(self.display)
         self.player.on_restart()
         self.canvas.add(self.left_hand_disp)
@@ -222,7 +234,7 @@ class MainWidget(BaseWidget) :
         self.label.text = ''
         if not song_ended:
             self.label.text += 'Score: %s\n' % (self.player.score)
-            self.label.text += 'Combo: %s\n' % (self.player.combo)
+            # self.label.text += 'Combo: %s\n' % (self.player.combo)
 
 
 # creates the Audio driver
@@ -780,7 +792,7 @@ class Player(object):
         self.good_slop_window = 0.15 # +-150 ms
         self.perfect_slop_window = 0.08 # +-80 ms
         self.tap_gestures = [TapGesture(side_bar, self.on_tap, self.on_release_tap, sound_tap_callback) for direction, side_bar in self.display.side_bars.items()]
-        self.min_combo = 2
+        self.min_combo = 5
 
         self.pass_gem_index = -1  # most recent gem that went past the slop window
         self.score = 0
