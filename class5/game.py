@@ -35,6 +35,15 @@ direction_number_map = {
 }  # labels are numbers 0 to 4 in gem_data.txt, which correspond to the directions
 center = (Window.width/2, Window.height/2 + 50)
 
+# gem_data_path = '../data/gem_data_thank_u_next_easy.txt'
+# gem_data_path = '../data/gem_data_thank_u_next_medium.txt'
+# gem_data_path = '../data/gem_data_thank_u_next_hard.txt'
+# wav_path = '../data/thank_u_next_1_min.wav'
+# gem_data_path = '../data/gem_data_flower_dance_medium.txt'
+# gem_data_path = '../data/gem_data_flower_dance_easy.txt'
+gem_data_path = '../data/gem_data_flower_dance_hard.txt'
+wav_path = '../data/flower_dance.wav'
+
 class MainWidget(BaseWidget) :
     def __init__(self):
         super(MainWidget, self).__init__()
@@ -44,12 +53,13 @@ class MainWidget(BaseWidget) :
         self.canvas.add(self.image)
 
         self.song_data = SongData()
-        self.gem_data = self.song_data.read_gem_data('../data/gem_data_thank_u_next_1_min.txt')
-        barline_times = self.song_data.read_barline_data('../data/barline_data.txt')
-        self.display = BeatMatchDisplay(self.gem_data, barline_times, self.on_end_game)
+        self.gem_data = self.song_data.read_gem_data(gem_data_path)
+        # barline_times = self.song_data.read_barline_data('../data/barline_data.txt')
+        # self.display = BeatMatchDisplay(self.gem_data, barline_times, self.on_end_game)
+        self.display = BeatMatchDisplay(self.gem_data, self.on_end_game)
         self.canvas.add(self.display)
 
-        self.audio_ctrl = AudioController('../data/thank_u_next_1_min.wav')
+        self.audio_ctrl = AudioController(wav_path)
         self.audio_ctrl.toggle()
         self.audio = self.audio_ctrl.audio
 
@@ -80,6 +90,20 @@ class MainWidget(BaseWidget) :
             self.audio_ctrl.toggle()
         elif keycode[1] == 'q':
             self.on_end_game()
+        elif keycode[1] == 'r':
+            self.on_restart()
+
+    def on_restart(self):
+        self.canvas.clear()
+        self.audio_ctrl.on_restart()
+        self.display.on_restart()
+        self.canvas.add(self.display)
+        self.player.on_restart()
+        self.canvas.add(self.left_hand_disp)
+        self.canvas.add(self.right_hand_disp)
+        self.left_hand_pos = [0,0,0]
+        self.right_hand_pos = [0,0,0]
+
 
     def on_end_game(self):
         self.audio_ctrl.on_end_game()
@@ -232,6 +256,11 @@ class AudioController(object):
 
     def get_frame(self):
         return self.wave_gen.frame
+
+    def on_restart(self):
+        self.wave_gen.reset()
+        self.wave_gen.set_gain(1)
+        self.wave_gen.play()
 
     def on_end_game(self):  # reset
         self.wave_gen.reset()
@@ -579,6 +608,11 @@ class Translate(InstructionGroup):
         self.anim_group.add(obj)
         self.objs.append(obj)
 
+    def on_restart(self):
+        self.objs = []
+        self.anim_group.clear()
+        self.inactive_indices = []
+
     def on_end_game(self):  # reset
         self.objs = []
         self.anim_group.clear()
@@ -597,26 +631,24 @@ class Translate(InstructionGroup):
 
 # Displays and controls all game elements: SideBars, BarLines?, Gems.
 class BeatMatchDisplay(InstructionGroup):
-    def __init__(self, gem_data, barline_times, end_game_callback):
+    # def __init__(self, gem_data, barline_times, end_game_callback):
+    def __init__(self, gem_data, end_game_callback):
         super(BeatMatchDisplay, self).__init__()
 
+        self.end_game_callback = end_game_callback
+        self.gem_data = gem_data
         self.side_bars = {}
         for direction in directions:
             side_bar = SideBarDisplay(direction)
             self.add(side_bar)
             self.side_bars[direction] = side_bar
-
-        self.gem_data = gem_data
-        self.gem_index = 0
-        self.barline_times = barline_times
-        self.barline_index = 0
-
-        self.gems = []
-
         self.trans = Translate()
         self.add(self.trans)
 
-        self.end_game_callback = end_game_callback
+        self.gem_index = 0
+        # self.barline_times = barline_times
+        # self.barline_index = 0
+        self.gems = []
         self.side_bars_tapped = {
             "right": None,
             "left": None
@@ -649,10 +681,24 @@ class BeatMatchDisplay(InstructionGroup):
             self.side_bars[direction].on_release_tap()
             self.side_bars[direction].set_tapped(False)
 
+    def on_restart(self):
+        self.clear()
+        for direction in self.side_bars:
+            self.add(self.side_bars[direction])
+        self.gem_index = 0
+        self.gems = []
+        self.side_bars_tapped = {
+            "right": None,
+            "left": None
+        }
+        self.star_seconds_counter = 0
+        self.trans.on_restart()
+        self.add(self.trans)
+
     def on_end_game(self):
         self.clear()
         self.gem_index = 0
-        self.barline_index = 0
+        # self.barline_index = 0
         self.trans.on_end_game()
 
     # call every frame to make gems and barlines flow down the screen
@@ -671,13 +717,13 @@ class BeatMatchDisplay(InstructionGroup):
                 self.gems.append(gem)
                 self.trans.add_obj(gem)
                 self.gem_index += 1
-        if self.barline_index < len(self.barline_times):
-            barline_time = self.barline_times[self.barline_index]
-            if barline_time - NUM_SECONDS < second:
-                # self.trans.add_obj(BarlineDisplay(), second)
-                self.barline_index += 1
-        else:  # End game when no more barlines
-            self.end_game_callback()
+        # if self.barline_index < len(self.barline_times):
+        #     barline_time = self.barline_times[self.barline_index]
+        #     if barline_time - NUM_SECONDS < second:
+        #         # self.trans.add_obj(BarlineDisplay(), second)
+        #         self.barline_index += 1
+        # else:  # End game when no more barlines
+        #     self.end_game_callback()
         self.trans.on_update(second)
 
 
@@ -686,19 +732,25 @@ class BeatMatchDisplay(InstructionGroup):
 class Player(object):
     def __init__(self, gem_data, display, audio_ctrl, sound_tap_callback):
         super(Player, self).__init__()
-        self.score = 0
         self.gem_data = gem_data
         self.display = display
         self.audio_ctrl = audio_ctrl
-        self.pass_gem_index = -1  # most recent gem that went past the slop window
         self.good_slop_window = 0.15 # +-150 ms
         self.perfect_slop_window = 0.08 # +-80 ms
+        self.tap_gestures = [TapGesture(side_bar, self.on_tap, self.on_release_tap, sound_tap_callback) for direction, side_bar in self.display.side_bars.items()]
 
+        self.pass_gem_index = -1  # most recent gem that went past the slop window
+        self.score = 0
         self.num_perfects = 0
         self.num_goods = 0
         self.num_misses = 0
 
-        self.tap_gestures = [TapGesture(side_bar, self.on_tap, self.on_release_tap, sound_tap_callback) for direction, side_bar in self.display.side_bars.items()]
+    def on_restart(self):
+        self.pass_gem_index = -1  # most recent gem that went past the slop window
+        self.score = 0
+        self.num_perfects = 0
+        self.num_goods = 0
+        self.num_misses = 0
 
     def on_tap(self, side_bar, hand):
         second = self.audio_ctrl.get_frame() / Audio.sample_rate
