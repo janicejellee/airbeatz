@@ -165,13 +165,13 @@ class MainWidget(BaseWidget) :
         total_poss_score = len(self.gem_data) * 10
         percent = self.player.score / total_poss_score
 
-        if percent > 0.9:
+        if percent > 0.85:
             grade = 'A'
-        elif percent > 0.8:
-            grade = 'B'
         elif percent > 0.7:
+            grade = 'B'
+        elif percent > 0.55:
             grade = 'C'
-        elif percent > 0.6:
+        elif percent > 0.4:
             grade = 'D'
         else:
             grade = 'F'
