@@ -113,7 +113,8 @@ class MainWidget(BaseWidget) :
             'Normal': Color(217/255, 217/255, 217/255),
             'Perfect': Color(0, 1, 0),
             'Good': Color(1, 127/255, 80/255),
-            'Miss': Color(1, 0, 0)
+            'Miss': Color(1, 0, 0),
+            'Combo': Color(0, 0, 1)
         }
 
         text_height = 200
@@ -136,10 +137,11 @@ class MainWidget(BaseWidget) :
         nums = {
             'Perfect': self.player.num_perfects,
             'Good': self.player.num_goods,
-            'Miss': self.player.num_misses
+            'Miss': self.player.num_misses,
+            'Combo': self.player.highest_combo
         }
 
-        for acc in ['Perfect', 'Good', 'Miss']:
+        for acc in ['Perfect', 'Good', 'Miss', 'Combo']:
             color = font_colors[acc]
             label = CoreLabel(text=acc, font_size=30)
             label.refresh()
@@ -218,6 +220,7 @@ class MainWidget(BaseWidget) :
         self.label.text = ''
         if not song_ended:
             self.label.text += 'Score: %s\n' % (self.player.score)
+            self.label.text += 'Combo: %s\n' % (self.player.combo)
 
 
 # creates the Audio driver
@@ -346,6 +349,41 @@ class AccuracyDisplay(InstructionGroup):
         self.label = Rectangle(size=texture.size, pos=text_pos, texture=texture)
         self.add(self.label)
         max_time = 2
+        self.alpha_anim = KFAnim((second, 1), (second + max_time, 0)) # color disappears
+        self.set_second(second)
+
+    def set_second(self, second):
+        alpha = self.alpha_anim.eval(second)
+        self.color.a = alpha
+        return self.alpha_anim.is_active(second)
+
+    def on_update(self, dt):
+        return True
+
+
+class ComboDisplay(InstructionGroup):
+    def __init__(self, combo, second):
+        super(ComboDisplay, self).__init__()
+        self.combo = combo
+        font_size = 25
+        self.pos = [Window.width/2, Window.height/2+100]
+        self.size = (100, 25)
+        self.box = Rectangle(pos=self.pos, size=self.size)
+        box_color = Color(0, 0, 0, 0)
+        self.add(box_color)
+        self.add(self.box)
+
+        label = CoreLabel(text='Combo %d'%(self.combo), font_size=font_size)
+        # the label is usually not drawn until needed, so force it to draw
+        label.refresh()
+        # now access the texture of the label and use it
+        texture = label.texture
+        self.color = Color(0, 0, 1)
+        self.add(self.color)
+        text_pos = list(self.pos[i] + (self.size[i] - texture.size[i]) / 2 for i in range(2))
+        self.label = Rectangle(size=texture.size, pos=text_pos, texture=texture)
+        self.add(self.label)
+        max_time = 1
         self.alpha_anim = KFAnim((second, 1), (second + max_time, 0)) # color disappears
         self.set_second(second)
 
@@ -656,10 +694,12 @@ class BeatMatchDisplay(InstructionGroup):
         self.star_seconds_counter = 0
 
     # called by Player. Causes the right thing to happen
-    def gem_hit(self, gem_idx, accuracy, second):
+    def gem_hit(self, gem_idx, accuracy, second, combo=None):
         if gem_idx < len(self.gems):
             self.gems[gem_idx].on_hit()
             self.trans.add_obj(AccuracyDisplay(accuracy, self.gems[gem_idx].get_pos(), second))
+            if combo is not None:
+                self.trans.add_obj(ComboDisplay(combo, second))
 
     # called by Player. Causes the right thing to happen
     def gem_pass(self, gem_idx, second):
@@ -738,12 +778,16 @@ class Player(object):
         self.good_slop_window = 0.15 # +-150 ms
         self.perfect_slop_window = 0.08 # +-80 ms
         self.tap_gestures = [TapGesture(side_bar, self.on_tap, self.on_release_tap, sound_tap_callback) for direction, side_bar in self.display.side_bars.items()]
+        self.min_combo = 2
 
         self.pass_gem_index = -1  # most recent gem that went past the slop window
         self.score = 0
         self.num_perfects = 0
         self.num_goods = 0
         self.num_misses = 0
+        self.combo = 0
+        self.highest_combo = 0
+        # self.previous_hit = False  # True if last tap was a hit, False if was a miss
 
     def on_restart(self):
         self.pass_gem_index = -1  # most recent gem that went past the slop window
@@ -751,6 +795,8 @@ class Player(object):
         self.num_perfects = 0
         self.num_goods = 0
         self.num_misses = 0
+        self.combo = 0
+        self.highest_combo = 0
 
     def on_tap(self, side_bar, hand):
         second = self.audio_ctrl.get_frame() / Audio.sample_rate
@@ -763,12 +809,19 @@ class Player(object):
             if gem_direction == side_bar.direction:  # Hit
                 hit = True
                 gem_second = self.gem_data[gem_index][0]
+                self.combo += 1  # Add on to combo
                 if abs(gem_second - second) <= self.perfect_slop_window:
-                    self.display.gem_hit(gem_index, "Perfect", second)
+                    if self.combo >= self.min_combo:  # Display combo if > minimum combo
+                        self.display.gem_hit(gem_index, "Perfect", second, self.combo)
+                    else:
+                        self.display.gem_hit(gem_index, "Perfect", second, None)
                     self.score += 10
                     self.num_perfects += 1
                 elif abs(gem_second - second) <= self.good_slop_window:
-                    self.display.gem_hit(gem_index, "Good", second)
+                    if self.combo >= self.min_combo:
+                        self.display.gem_hit(gem_index, "Good", second, self.combo)
+                    else:
+                        self.display.gem_hit(gem_index, "Good", second, None)
                     self.score += 5
                     self.num_goods += 1
             # else: # Else, it's a Lane miss
@@ -784,7 +837,6 @@ class Player(object):
         self.display.on_release_tap(side_bar.direction, hand)
 
     def on_end_game(self):
-        # self.score = 0
         self.pass_gem_index = -1
 
     # needed to check if for pass gems (ie, went past the slop window)
@@ -794,6 +846,10 @@ class Player(object):
         while gem_index < len(self.gem_data) and self.gem_data[gem_index][0] <= second - self.good_slop_window:
             self.display.gem_pass(gem_index, second)
             self.num_misses += 1
+            # self.previous_hit = False
+            if self.combo > self.highest_combo:  # Record highest combo before resetting combo
+                self.highest_combo = self.combo
+            self.combo = 0
             # self.audio_ctrl.set_mute(True)
             gem_index += 1
         self.pass_gem_index = gem_index - 1
