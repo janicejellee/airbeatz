@@ -39,7 +39,7 @@ center = (Window.width/2, Window.height/2 + 50)
 current_song_index = 0
 
 index_to_song = {
-    0: 'Thank u, # NOTE: xt',
+    0: 'Thank u, Next',
     1: 'Flower Song',
     2: 'Umaru'
 }
@@ -54,6 +54,12 @@ index_to_img = {
     0: "../images/thanku_next.jpeg",
     1: "../images/flower_dance.jpg",
     2: "../images/umaru.jpg"
+}
+
+index_to_img_label = {
+    0: "../images/thanku_next_label.png",
+    1: "../images/flower_song_label.png",
+    2: "../images/umaru_label.png"
 }
 
 # gem_data_path = '../data/gem_data_thank_u_next_easy.txt'
@@ -297,23 +303,33 @@ class SongMenu(InstructionGroup):
         self.add(self.trans)
 
         self.img_locations = [center, (center[0]+400, center[1]), (center[0]+800, center[1])]
-
-        self.move_right = False
-        self.move_left = False
-        self.move_counter = 80
+        self.label_locations = [(center[0], center[1]-170), (center[0]+400, center[1]-170), (center[0]+800, center[1]-170)]
 
         self.list_imgs = []
+        self.list_labels = []
         self.anim_group = AnimGroup()
+
+        print ("wot")
 
         for i in range(3):
             image_path = index_to_img[i]
+            label_path = index_to_img_label[i]
             image = Image(250, 250, self.img_locations[i], image_path)
+            label = Image(250, 45, self.label_locations[i], label_path)
+
+            print (image_path)
+            print (label_path)
+            print (label)
+
             self.add(image)
+            self.add(label)
             self.list_imgs.append(image)
+            self.list_labels.append(label)
 
         for im in self.list_imgs:
             self.anim_group.add(im)
-
+        for label in self.list_labels:
+            self.anim_group.add(label)
 
     def on_key_down(self, keycode, modifiers):
         print (keycode)
@@ -325,44 +341,19 @@ class SongMenu(InstructionGroup):
             print ("right")
             for i in range(3):
                 img = self.list_imgs[i]
-                img.move_right(4)
-            # self.move_right = True
+                img.move_right(1)
+                label = self.list_labels[i]
+                label.move_right(1)
         elif keycode[1] == 'left' and self.current_song_index>0:
             self.current_song_index -= 1
             print ("left")
             for i in range(3):
                 img = self.list_imgs[i]
-                img.move_left(4)
-            # self.move_left = True
+                img.move_left(1)
+                label = self.list_labels[i]
+                label.move_left(1)
 
     def on_update(self):
-        # if self.move_left:
-        #     print ("movin left")
-        #     print (self.move_counter)
-        #     print (self.list_imgs[0].get_pos())
-        #     self.move_counter -= 1
-        #     for i in range(3):
-        #         current_loc = self.img_locations[i]
-        #         self.img_locations[i] = (current_loc[0]+5, 225)
-        #     if self.move_counter == 0:
-        #         self.move_left = False
-        #         self.move_counter = 80
-        #     for i in range(3):
-        #         self.list_imgs[i].set_pos(self.img_locations[i])
-        #
-        # if self.move_right:
-        #     print ("movin left")
-        #     print (self.move_counter)
-        #     print (self.list_imgs[0].get_pos())
-        #     self.move_counter -= 1
-        #     for i in range(3):
-        #         current_loc = self.img_locations[i]
-        #         self.img_locations[i] = (current_loc[0]-5, 225)
-        #     if self.move_counter == 0:
-        #         self.move_right = False
-        #         self.move_counter = 80
-        #     for i in range(3):
-        #         self.list_imgs[i].set_pos(self.img_locations[i])
         self.anim_group.on_update()
         return True
 
