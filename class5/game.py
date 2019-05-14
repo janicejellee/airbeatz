@@ -309,17 +309,11 @@ class SongMenu(InstructionGroup):
         self.list_labels = []
         self.anim_group = AnimGroup()
 
-        print ("wot")
-
         for i in range(3):
             image_path = index_to_img[i]
             label_path = index_to_img_label[i]
             image = Image(250, 250, self.img_locations[i], image_path)
             label = Image(250, 45, self.label_locations[i], label_path)
-
-            print (image_path)
-            print (label_path)
-            print (label)
 
             self.add(image)
             self.add(label)
