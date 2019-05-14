@@ -75,10 +75,12 @@ class MainWidget(BaseWidget) :
         kCursorSize = Window.width - 2 * kMargin, Window.height - 2 * kMargin
         kCursorPos = kMargin, kMargin
 
-        self.left_hand_disp = Cursor3D(kCursorSize, kCursorPos, (.2, .2, .6))
+        # hand_color = (148/255,0,211/255)
+        hand_color = (1,1,1, 0.7)
+        self.left_hand_disp = Cursor3D(kCursorSize, kCursorPos, hand_color)
         self.canvas.add(self.left_hand_disp)
 
-        self.right_hand_disp = Cursor3D(kCursorSize, kCursorPos, (.2, .6, .2))
+        self.right_hand_disp = Cursor3D(kCursorSize, kCursorPos, hand_color)
         self.canvas.add(self.right_hand_disp)
 
         self.left_hand_pos = [0,0,0]
