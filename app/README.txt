@@ -1,7 +1,10 @@
-Added a slight animation that changes a string's middle x coordinate upon pluck.
-Player can change pitch by "pressing" on frets with their left hand, while plucking with their right hand.
-Frets increase the pitch from top -> bottom by a semitone each.
-The "press gesture" just detects if the left hand is within range of the fret.
-Buttons on the left light up if a fret is "pressed".
+AirBeatz
 
-Performance video: https://youtu.be/LIUjqo6SiBk
+Setup: Follow the installation instructions in `Installation Instructions.html`
+
+Running the code:
+`cd` into the app/ directory and run: `python3 game.py`
+
+Files:
+- game.py: our game 
+- common/ holds all audio generators. All files here were adapted from 6.809 Interactive Music Systems course

@@ -1,0 +1,59 @@
+<h2>Overview</h2>
+<p>21M.385 uses <a href="http://kivy.org">Kivy </a>- an application / graphics framework for python. We also use a few other packages: numpy, pyaudio (which uses portaudio) and fluidsynth. Note that this class uses python3.</p>
+<p>Follow the steps below to install everything you need for Mac, Windows, or Linux.</p>
+<h2>Mac Installation Instructions</h2>
+<ul>
+<li>Install the LeapMotion System using the Mac installer found <a href="https://www.dropbox.com/sh/6mq44th4hermagi/AAA1qIZ07BOFA8vNtqmjET-Oa?dl=0" target="_blank">here</a>.</li>
+<li>Download the latest Python using <a href="http://conda.pydata.org/miniconda.html" target="_blank">miniconda</a>. Select the <strong>python 3.7 64-bit (bash installer)</strong> for Mac OSX.</li>
+<li>Install miniconda by opening up a terminal window, going to the location of the installer, and typing
+<pre style="padding-left: 60px;">$ bash Miniconda3-latest-MacOSX-x86_64.sh</pre>
+</li>
+<li>Close this terminal window since it will not have the correct path to the newly installed python.</li>
+<li>Get <a href="https://www.dropbox.com/sh/s680lmsqenroiv3/AADY9jQeC-qlKeB6YphDyGlua?dl=0" target="_blank">osx.zip</a>, the osx install package and unzip it.</li>
+<li>Open a terminal window and cd to the osx installation directory (for example, if the osx package is in Downloads type cd Downloads/osx).</li>
+<li>Run the installer (it uses homebrew, conda install, and pip install):
+<pre style="padding-left: 60px;">$ bash install_osx.sh</pre>
+</li>
+<li>This installation will downgrade your python to 3.6.5. This is important because later versions of python have an incompatibility with Leap Motion.</li>
+<li>Please note if any errors occurred. If so, contact me or post on Piazza to get help.</li>
+<li>Test the installation by running:
+<pre style="padding-left: 60px;">$ python3 check_install.py</pre>
+</li>
+</ul>
+<h2>Windows Installation Instructions</h2>
+<ul>
+<li>Install LeapMotion using the Windows installer found <a href="https://www.dropbox.com/sh/6mq44th4hermagi/AAA1qIZ07BOFA8vNtqmjET-Oa?dl=0" target="_blank">here</a>.</li>
+<li>Install Python using <a href="http://conda.pydata.org/miniconda.html" target="_blank">miniconda</a>. Select the <strong>64-bit python 3.7</strong> for Windows.</li>
+<ul>
+<li>When you install miniconda, I recommend installing for "Just Me". Otherwise, you may have permission issues in the installation process.</li>
+<li>Additionally, check the box that adds Anaconda to your PATH (even though this is "not recommended" by the installer).</li>
+</ul>
+<li>Get the <a href="http://www.asio4all.com/">ASIO drivers</a>. The default windows audio drivers are often bad - exhibiting a lot of latency.</li>
+<li>Get the <a href="https://www.dropbox.com/sh/s680lmsqenroiv3/AADY9jQeC-qlKeB6YphDyGlua?dl=0" target="_blank">win install package</a> and unzip it.</li>
+<li>Open a new Command Terminal.</li>
+<li>From the cmd line, cd to the win directory you just unzipped and run:</li>
+</ul>
+<pre style="padding-left: 60px;"> &gt; install_win.bat</pre>
+<p style="padding-left: 60px;">This might take a while. It will also downgrade your python installation to 3.6.5, which is necessary for the rest of the installer to run properly. Note if any errors occurred. If so, contact me or post on Piazza to get help.</p>
+<ul style="padding-left: 30px;">
+<li>Test the installation by running:</li>
+</ul>
+<pre style="padding-left: 60px;"> &gt; python check_install.py</pre>
+<h2>Linux Installation Instructions</h2>
+<ul>
+<li>Linux is not very well supported for this class. It is preferable to use Mac or Windows. However, if that is not an option, you should install the following:</li>
+<li>Install python 3.6.5. As with Windows or Mac, you may want to use miniconda.</li>
+<li>Install <a href="https://www.dropbox.com/sh/6mq44th4hermagi/AAA1qIZ07BOFA8vNtqmjET-Oa?dl=0" target="_blank">Leapmotion</a></li>
+<li>Install <a href="https://sourceforge.net/projects/fluidsynth/files/" target="_blank">Fluidsynth</a></li>
+<li>Install <a href="http://www.portaudio.com/download.html" target="_blank">Portaudio</a></li>
+<li>Install <a href="https://kivy.org/#download" target="_blank">Kivy</a></li>
+<li>Install the following python modules:</li>
+<ul>
+<li>numpy</li>
+<li>matplotlib</li>
+<li>python-rtmidi</li>
+<li>pyaudio</li>
+</ul>
+<li>Test the installation by running (same code as the Mac or Win checker above):</li>
+</ul>
+<pre style="padding-left: 60px;"> &gt; python check_install.py</pre>
