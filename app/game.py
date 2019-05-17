@@ -150,7 +150,7 @@ class MainWidget(BaseWidget) :
         self.difficulty_label.refresh()
         self.difficulty_texture = self.difficulty_label.texture
         self.canvas.add(Color(1,1,1))
-        text_pos = [Window.width*0.5, Window.height*0.2]
+        text_pos = [Window.width*0.45, Window.height*0.15]
         self.difficulty_rec_label = Rectangle(size=self.difficulty_texture.size, pos=text_pos, texture=self.difficulty_texture)
         self.canvas.add(self.difficulty_rec_label)
 
@@ -193,6 +193,7 @@ class MainWidget(BaseWidget) :
     def on_restart(self):
         self.canvas.clear()
         self.audio_ctrl.set_song(songs[self.song_menu.current_song_index]['wav_path'])
+        print(songs[self.song_menu.current_song_index]['gem_data_path'] + self.difficulty.lower() + '.txt')
         self.gem_data = self.song_data.read_gem_data(songs[self.song_menu.current_song_index]['gem_data_path'] + self.difficulty.lower() + '.txt')
         self.audio_ctrl.on_restart()
         self.display.on_restart()
